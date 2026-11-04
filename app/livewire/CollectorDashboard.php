@@ -8,7 +8,7 @@ use App\Models\Route;
 use App\Models\Farmer;
 use App\Models\MilkCollection;
 use Illuminate\Support\Carbon;
-use Filament\Facades\Filament; // CHANGED: imported so we can build the admin URL and check panel access
+use Filament\Facades\Filament;
 
 class CollectorDashboard extends Component
 {
@@ -23,17 +23,12 @@ class CollectorDashboard extends Component
     public $activeSection = 'overview'; // 'overview', 'farmers'
     public $darkMode = false;
 
-    public $selectedFarmerRouteId = null;
-
-    // Modal Form State
-    // CHANGED: removed `public $showModal = false;`
-    // Alpine (modalOpen in the view) now owns whether the modal is open or closed.
-    // Livewire only holds the form data.
-    public $selectedFarmerId = null;
-    public $selectedFarmerName = '';
+    // ALPINE: modal state ($showModal, $selectedFarmerId, $selectedFarmerName,
+    // $isEditMode, $selectedFarmerRouteId) was REMOVED from here. The modal's data now
+    // lives in the browser (Alpine `form`), so opening/closing makes no server request.
+    // Livewire only needs these two properties so validate() and @error keep working.
     public $qty = '';
     public $notes = '';
-    public $isEditMode = false;
 
     public function mount()
     {
@@ -53,32 +48,8 @@ class CollectorDashboard extends Component
         $this->activeSection = $section;
     }
 
-    public function openCollectModal(string|int $farmerId)
-    {
-        $this->selectedFarmerId = (string) $farmerId;
-
-        $farmer = Farmer::with(['milkCollections' => fn($q) => $q->where('collection_date', Carbon::today()->toDateString())])
-            ->where('farmer_id', $this->selectedFarmerId)
-            ->first();
-
-        $this->selectedFarmerName = $farmer?->name ?? '';
-        $this->selectedFarmerRouteId = $farmer?->route_id;
-        $collection = $farmer?->milkCollections->first();
-        $this->qty = $collection?->qty ?? '';
-        $this->notes = $collection?->correction_reason ?? '';
-        $this->isEditMode = $collection !== null;
-
-        // CHANGED: removed `$this->showModal = true;`
-        // Alpine opens the modal instantly on click; this method just loads the data.
-    }
-
-    // CHANGED: renamed from closeModal() to resetModal().
-    // It no longer closes anything (Alpine does that). It only clears the form data.
-    public function resetModal()
-    {
-        $this->reset(['selectedFarmerId', 'selectedFarmerName', 'qty', 'notes', 'isEditMode', 'selectedFarmerRouteId']);
-        $this->resetValidation(); // CHANGED: also clear old validation errors so they don't show next time
-    }
+    // ALPINE: openCollectModal() and resetModal() were DELETED. Alpine opens/closes the modal
+    // and fills it from data already on the page, so no server call is needed for either.
 
     public function updatedSearchQuery()
     {
@@ -110,45 +81,55 @@ class CollectorDashboard extends Component
         $this->darkMode = ! $this->darkMode;
     }
 
-    public function saveCollection()
+    // ALPINE: this is now the ONLY request the modal makes. Alpine's save() calls it with the
+    // farmer id and form values as arguments, so Livewire no longer has to remember which
+    // farmer was selected between requests.
+    public function saveCollection(string $farmerId, $qty, $notes = null)
     {
+        $this->resetValidation();
+
+        // Copy the values onto the public properties so validate() and @error work
+        $this->qty = $qty;
+        $this->notes = $notes;
+
         $this->validate([
             'qty' => 'required|numeric|min:0.1',
             'notes' => 'nullable|string|max:100',
         ]);
 
+        // 404 instead of a foreign-key error if the farmer_id is wrong
+        $farmer = Farmer::where('farmer_id', $farmerId)->firstOrFail();
+
+        // Edit mode is decided on the server (never trust a flag sent from the browser)
+        $isEdit = MilkCollection::where('farmer_id', $farmer->farmer_id)
+            ->where('collection_date', Carbon::today()->toDateString())
+            ->exists();
+
         MilkCollection::updateOrCreate(
             [
-                'farmer_id' => $this->selectedFarmerId,
+                'farmer_id' => $farmer->farmer_id,
                 'collection_date' => Carbon::today()->toDateString(),
             ],
             [
                 'qty' => $this->qty,
                 'collector_id' => auth()->id(),
                 'correction_reason' => $this->notes,
-                'is_correction' => (bool) $this->isEditMode,
-                'corrected_by' => $this->isEditMode ? auth()->id() : null,
+                'is_correction' => $isEdit,
+                'corrected_by' => $isEdit ? auth()->id() : null,
             ]
         );
 
-        if ($this->selectedFarmerId !== null && $this->selectedFarmerRouteId) {
-            Farmer::where('farmer_id', $this->selectedFarmerId)
-                ->update(['route_id' => $this->selectedFarmerRouteId]);
-        }
+        $this->reset(['qty', 'notes']);
 
-        // CHANGED: was $this->closeModal(). Now we clear the form data, then
-        // dispatch a browser event that the view listens for to close the modal.
+        // ALPINE: 'collection-saved' makes Alpine close the modal (@collection-saved.window).
         // If validation fails above, we never reach this line, so the modal stays open.
-        $this->resetModal();
         $this->dispatch('collection-saved');
 
-        // CHANGED: was session()->flash('message', ...), which the view never displayed.
-        // Now we dispatch a 'notify' browser event; the Alpine toast in the view shows it
-        // and hides it automatically after 3 seconds.
+        // ALPINE: 'notify' makes Alpine show the toast, which hides itself after 3 seconds.
         $this->dispatch('notify', message: 'Milk entry saved successfully!');
     }
 
-    // CHANGED: new method. Decides whether the "Back to Admin" button is shown.
+    // Decides whether the "Back to Admin" button is shown.
     // Pick the line that matches how your app marks admins.
     protected function isAdmin(): bool
     {
@@ -219,7 +200,6 @@ class CollectorDashboard extends Component
             'totalFarmersRoute' => $totalFarmersRoute,
             'todayFarmersRoute' => $todayFarmersRoute,
             'remainingFarmersRoute' => $remainingFarmersRoute,
-            // CHANGED: two new values used by the "Back to Admin" button
             'isAdmin' => $this->isAdmin(),
             'adminUrl' => Filament::getPanel('admin')->getUrl(),
         ]);

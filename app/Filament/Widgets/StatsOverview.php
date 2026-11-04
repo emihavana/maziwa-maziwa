@@ -43,22 +43,11 @@ class StatsOverview extends BaseWidget
             ->whereBetween('transaction_date', [$monthStart, $monthEnd])
             ->sum('amount');
 
-        // Total sales revenue is the value of milk sold to the factory, minus the milk cost
-        // paid to farmers for the milk collected in the same period.
-        $salesRevenueThisMonth = Sale::query()
-            ->whereBetween('sale_date', [$monthStart, $monthEnd])
+        // --- TODAY'S REVENUE (Sales minus Farmer Earnings) ---
+        $todayGrossRevenue = Sale::whereDate('sale_date', today())
             ->selectRaw('COALESCE(SUM(qty * sale_price_per_liter), 0) as total_revenue')
             ->value('total_revenue') ?? 0;
 
-        $totalRevenueThisMonth = $salesRevenueThisMonth - $farmerEarnings;
-        $netFarmerEarnings = $farmerEarnings - $totalDebtThisMonth;
-
-        $todayCollectionQty = MilkCollection::whereDate('collection_date', today())->sum('qty');
-        $monthCollectionQty = MilkCollection::whereBetween('collection_date', [$monthStart, $monthEnd])->sum('qty');
-        $todaySaleQty = Sale::whereDate('sale_date', today())->sum('qty');
-        $monthSaleQty = Sale::whereBetween('sale_date', [$monthStart, $monthEnd])->sum('qty');
-        $todayRevenue = Sale::whereDate('sale_date', today())->selectRaw('COALESCE(SUM(qty * sale_price_per_liter), 0) as total_revenue')->value('total_revenue') ?? 0;
-        $monthRevenue = $salesRevenueThisMonth;
         $todayFarmerEarnings = MilkCollection::query()
             ->whereDate('collection_date', today())
             ->join('farmers as f', 'f.farmer_id', '=', 'milk_collections.farmer_id')
@@ -72,6 +61,39 @@ class StatsOverview extends BaseWidget
                 LIMIT 1
             )), 0) as total_earnings')
             ->value('total_earnings') ?? 0;
+
+        $todayRevenue = $todayGrossRevenue - $todayFarmerEarnings;
+
+        // --- THIS MONTH'S REVENUE (Sales minus Farmer Earnings) ---
+        $monthGrossRevenue = Sale::query()
+            ->whereBetween('sale_date', [$monthStart, $monthEnd])
+            ->selectRaw('COALESCE(SUM(qty * sale_price_per_liter), 0) as total_revenue')
+            ->value('total_revenue') ?? 0;
+
+        $monthFarmerEarnings = MilkCollection::query()
+            ->whereYear('collection_date', now()->year)
+            ->whereMonth('collection_date', now()->month)
+            ->join('farmers as f', 'f.farmer_id', '=', 'milk_collections.farmer_id')
+            ->selectRaw('COALESCE(SUM(milk_collections.qty * (
+                SELECT mp.price_per_liter
+                FROM milk_prices mp
+                WHERE mp.route_id = f.route_id
+                  AND mp.is_active = 1
+                  AND mp.effective_date <= milk_collections.collection_date
+                ORDER BY mp.effective_date DESC, mp.id DESC
+                LIMIT 1
+            )), 0) as total_earnings')
+            ->value('total_earnings') ?? 0;
+
+        $monthRevenue = $monthGrossRevenue - $monthFarmerEarnings;
+
+        $totalRevenueThisMonth = $monthRevenue;
+        $netFarmerEarnings = $farmerEarnings - $totalDebtThisMonth;
+
+        $todayCollectionQty = MilkCollection::whereDate('collection_date', today())->sum('qty');
+        $monthCollectionQty = MilkCollection::whereBetween('collection_date', [$monthStart, $monthEnd])->sum('qty');
+        $todaySaleQty = Sale::whereDate('sale_date', today())->sum('qty');
+        $monthSaleQty = Sale::whereBetween('sale_date', [$monthStart, $monthEnd])->sum('qty');
 
         return [
             Stat::make('Total Farmers', Farmer::count())

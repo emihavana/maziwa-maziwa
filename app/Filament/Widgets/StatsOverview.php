@@ -5,12 +5,11 @@ namespace App\Filament\Widgets;
 use Filament\Widgets\StatsOverviewWidget as BaseWidget;
 use Filament\Widgets\StatsOverviewWidget\Stat;
 use App\Models\Farmer;
-use App\Models\User;
-use App\Models\Sale;
-use App\Models\Route;
 use App\Models\Farmer_debt_transaction;
 use App\Models\MilkCollection;
-use App\Models\MilkPrice;
+use App\Models\Route;
+use App\Models\Sale;
+use App\Models\User;
 
 class StatsOverview extends BaseWidget
 {
@@ -24,6 +23,7 @@ class StatsOverview extends BaseWidget
 
         // We intentionally do the total in SQL instead of loading all collections into PHP.
         // This keeps the dashboard fast and avoids the N+1/whole-table-load pattern.
+        // Farmer earnings = total milk collected for the month valued at each route's effective price.
         $farmerEarnings = MilkCollection::query()
             ->whereBetween('collection_date', [$monthStart, $monthEnd])
             ->join('farmers as f', 'f.farmer_id', '=', 'milk_collections.farmer_id')
@@ -43,12 +43,35 @@ class StatsOverview extends BaseWidget
             ->whereBetween('transaction_date', [$monthStart, $monthEnd])
             ->sum('amount');
 
-        $totalRevenueThisMonth = Sale::query()
+        // Total sales revenue is the value of milk sold to the factory, minus the milk cost
+        // paid to farmers for the milk collected in the same period.
+        $salesRevenueThisMonth = Sale::query()
             ->whereBetween('sale_date', [$monthStart, $monthEnd])
-            ->selectRaw('SUM(qty * sale_price_per_liter) as total_revenue')
+            ->selectRaw('COALESCE(SUM(qty * sale_price_per_liter), 0) as total_revenue')
             ->value('total_revenue') ?? 0;
 
+        $totalRevenueThisMonth = $salesRevenueThisMonth - $farmerEarnings;
         $netFarmerEarnings = $farmerEarnings - $totalDebtThisMonth;
+
+        $todayCollectionQty = MilkCollection::whereDate('collection_date', today())->sum('qty');
+        $monthCollectionQty = MilkCollection::whereBetween('collection_date', [$monthStart, $monthEnd])->sum('qty');
+        $todaySaleQty = Sale::whereDate('sale_date', today())->sum('qty');
+        $monthSaleQty = Sale::whereBetween('sale_date', [$monthStart, $monthEnd])->sum('qty');
+        $todayRevenue = Sale::whereDate('sale_date', today())->selectRaw('COALESCE(SUM(qty * sale_price_per_liter), 0) as total_revenue')->value('total_revenue') ?? 0;
+        $monthRevenue = $salesRevenueThisMonth;
+        $todayFarmerEarnings = MilkCollection::query()
+            ->whereDate('collection_date', today())
+            ->join('farmers as f', 'f.farmer_id', '=', 'milk_collections.farmer_id')
+            ->selectRaw('COALESCE(SUM(milk_collections.qty * (
+                SELECT mp.price_per_liter
+                FROM milk_prices mp
+                WHERE mp.route_id = f.route_id
+                  AND mp.is_active = 1
+                  AND mp.effective_date <= milk_collections.collection_date
+                ORDER BY mp.effective_date DESC, mp.id DESC
+                LIMIT 1
+            )), 0) as total_earnings')
+            ->value('total_earnings') ?? 0;
 
         return [
             Stat::make('Total Farmers', Farmer::count())
@@ -56,56 +79,38 @@ class StatsOverview extends BaseWidget
                 ->icon('heroicon-o-users')
                 ->color('primary'),
 
-            Stat::make('Total users', User::count())
+            Stat::make('Total Users', User::count())
                 ->description('Active in system')
                 ->icon('heroicon-o-users')
                 ->color('info'),
 
-            Stat::make('Today’s Milk Collection', MilkCollection::whereDate('collection_date', today())->sum('qty') . ' L')
-                ->description(now()->format('d M Y'))
+            Stat::make('Milk Collected', number_format($todayCollectionQty, 2) . ' L')
+                ->description('This month: ' . number_format($monthCollectionQty, 2) . ' L')
                 ->icon('heroicon-o-beaker')
                 ->color('success'),
 
-            Stat::make('This Month\'s Milk Collection', MilkCollection::whereBetween('collection_date', [$monthStart, $monthEnd])->sum('qty') . ' L')
-                ->description(now()->format('M Y'))
+            Stat::make('Milk Sold', number_format($todaySaleQty, 2) . ' L')
+                ->description('This month: ' . number_format($monthSaleQty, 2) . ' L')
                 ->icon('heroicon-o-beaker')
                 ->color('success'),
 
-            Stat::make('Today’s Milk sold', number_format(Sale::whereDate('sale_date', today())->sum('qty'), 2) . ' L')
-                ->description(now()->format('d M Y'))
-                ->icon('heroicon-o-beaker')
-                ->color('success'),
-
-            Stat::make('This month\'s Milk sold', round(Sale::whereBetween('sale_date', [$monthStart, $monthEnd])->sum('qty'), 1) . ' L')
-                ->description(now()->format('d M Y'))
-                ->icon('heroicon-o-beaker')
-                ->color('success'),
-
-            Stat::make('This Month\'s TOTAL debt', 'KES ' . number_format($totalDebtThisMonth, 2))
-                ->description(now()->format('M Y'))
+            Stat::make('This Month\'s TOTAL Debt', 'KES ' . number_format($totalDebtThisMonth, 2))
+                ->description('Current debt balance')
                 ->icon('heroicon-o-users')
                 ->color('danger'),
-
-            Stat::make('This Month\'s farmers with debt', Farmer_debt_transaction::where('transaction_type', 'debt')
-                ->whereBetween('transaction_date', [$monthStart, $monthEnd])
-                ->distinct()
-                ->count('farmer_id'))
-                ->description(now()->format('M Y'))
-                ->icon('heroicon-o-users')
-                ->color('warning'),
 
             Stat::make('Total Routes', Route::count())
                 ->description('Active in system')
                 ->icon('heroicon-o-users')
                 ->color('success'),
 
-            Stat::make('Farmer Earnings', 'KES ' . number_format($farmerEarnings, 2))
-                ->description('Milk collections this month')
+            Stat::make('Farmer Earnings', 'KES ' . number_format($todayFarmerEarnings, 2))
+                ->description('This month: KES ' . number_format($farmerEarnings, 2))
                 ->icon('heroicon-o-currency-dollar')
                 ->color('success'),
 
-            Stat::make('Total Revenue', 'KES ' . number_format($totalRevenueThisMonth, 2))
-                ->description('From milk sold this month - farmers earnings')
+            Stat::make('Net Revenue', 'KES ' . number_format($todayRevenue, 2))
+                ->description('This month: KES ' . number_format($monthRevenue, 2))
                 ->icon('heroicon-o-banknotes')
                 ->color('info'),
 

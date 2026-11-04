@@ -217,7 +217,7 @@ The current model layer includes features such as:
 The dashboard uses live business formulas to calculate the main operational totals:
 
 - Farmer Earnings = Σ (Milk Collection Qty × Effective Route Price for that collection date)
-- Total Revenue = Σ (Sale Qty × Sale Price Per Liter)
+- Total Revenue = Σ (Sale Qty × Sale Price Per Liter) − Σ (Milk Collected Qty × Effective Route Price)
 - Net Farmer Earnings = Farmer Earnings − Current Month Farmer Debt
 - Current Month Debt = Σ (Debt Transactions of type `debt` for the current month)
 
@@ -225,7 +225,7 @@ Example formulas:
 
 ```text
 Farmer Earnings = (qty1 × route_price1) + (qty2 × route_price2) + ...
-Total Revenue = (sale_qty1 × sale_price1) + (sale_qty2 × sale_price2) + ...
+Total Revenue = (sale_qty1 × sale_price1) + (sale_qty2 × sale_price2) + ... - (collected_qty1 × route_price1) - (collected_qty2 × route_price2) - ...
 Net Farmer Earnings = Farmer Earnings - Current Month Debt
 ```
 
@@ -384,7 +384,7 @@ This lets the user:
 The dashboard cards are backed by real calculation logic instead of placeholders:
 
 - Farmer Earnings = total milk quantity × effective route price
-- Total Revenue = total sold milk × sale price
+- Total Revenue = total milk sold × sale price − total milk collected × effective route price
 - Net Farmer Earnings = farmer earnings − current month debt
 
 These values reflect the actual operational flow of the dairy business.

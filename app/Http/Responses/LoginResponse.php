@@ -2,7 +2,7 @@
 
 namespace App\Http\Responses;
 
-use Filament\Http\Responses\LoginResponse as BaseLoginResponse;
+use Filament\Auth\Http\Responses\LoginResponse as BaseLoginResponse;
 use Illuminate\Http\RedirectResponse;
 use Livewire\Features\SupportRedirects\Redirector;
 
@@ -12,7 +12,7 @@ class LoginResponse extends BaseLoginResponse
     {
         $user = auth()->user();
 
-        if ($user->role === 'a') {
+        if ($user->role === 'admin') {
             return redirect()->to('/admin');
         }
 

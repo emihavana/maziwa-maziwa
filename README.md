@@ -36,11 +36,11 @@ The system allows staff to:
 
 ## Tech stack
 
-- Laravel 12
-- PHP 8.2+
+- Laravel 13
+- PHP 8.3+
 - MySQL database
-- Filament admin panel
-- Livewire
+- Filament 5.x admin panel
+- Livewire 4.x
 - Eloquent ORM
 - Vite for frontend assets
 
@@ -83,6 +83,39 @@ The application is meant to support the following roles:
 - Collector
   - Can operate collection workflow and related records
   - Restricted to collection activities and route-level task access
+
+## Recent critical fixes and rules
+
+The following changes were added to align the app with the real business workflow and Laravel/Filament runtime requirements:
+
+- Shared login flow for both admins and collectors
+  - Collectors and admins use the same `/admin/login` page.
+  - The `User::canAccessPanel()` logic now allows active users with role `admin` or `collector` to access the admin panel context when needed, while the collector route is still kept separate.
+  - A custom `LoginResponse` redirects admins to `/admin` and collectors to `/collector` after successful login.
+
+- Collector access protection
+  - A `KeepCollectorsOutOfAdmin` middleware ensures collectors who try to reach the admin panel are redirected back to the collector page instead of staying in the admin dashboard.
+  - This prevents collectors from being locked out or accidentally stuck in the wrong panel.
+
+- Laravel password handling
+  - User password fields are stored using Laravel's standard hashing flow.
+  - The user form uses `Hash::make()` when a new password is submitted, and does not use a custom `password_hash` field.
+
+- Linux-safe Livewire casing
+  - The Livewire directory casing was corrected to match the `App\Livewire` namespace to avoid Linux filesystem case-sensitivity issues.
+
+- Fresh schema cleanup
+  - Migrations were rebuilt cleanly with one migration per model instead of mixing legacy tables and old schema fragments.
+  - Old migration clutter was removed to keep the app maintainable.
+
+- Dashboard and business calculations
+  - Revenue is calculated as gross sales minus the cost of milk collected at the active route price.
+  - Daily totals and monthly totals are calculated using database aggregation to avoid loading whole tables into PHP.
+  - Summary cards were reduced to fewer, clearer combined cards so the dashboard presents the most important figures without duplication.
+
+- Collector workflow improvements
+  - Collector modals now use Alpine.js for UI state, keeping form behavior smooth without unnecessary Livewire state duplication.
+  - Session expiry flow redirects users back to the login page when needed.
 
 ## Default seeded users
 
@@ -211,6 +244,8 @@ The current model layer includes features such as:
 - Debt balance tracking from farmer debt transactions
 - Route-based price retrieval for milk collections
 - Payment/collections calculations by period and effective date
+- Shared login routing for admin and collector roles
+- Role-aware panel access validation and redirect protection
 
 ## Dashboard calculations
 
@@ -250,6 +285,54 @@ Duplicate-date handling:
 - The system still relies on the selected effective date to determine which factory rate applies to each sale
 
 This keeps revenue reporting accurate while also allowing late or planned factory-rate changes without blocking legitimate corrections.
+
+## Deployment script
+
+Use the production deployment script below to pull the latest code on the server, install dependencies, build the frontend, run migrations, and clear Laravel caches.
+
+```bash
+#!/usr/bin/env bash
+set -e
+cd /var/www/muhoko
+
+git fetch origin
+git reset --hard origin/main
+composer install --no-dev --optimize-autoloader
+npm ci && npm run build
+php artisan migrate --force
+php artisan optimize:clear
+```
+
+Save it as `deploy.sh`, then run:
+
+```bash
+chmod +x deploy.sh
+sudo ln -s /var/www/muhoko/deploy.sh /usr/local/bin/deploy.sh
+```
+
+Now you can run it from anywhere:
+
+```bash
+deploy.sh
+```
+
+This works because the script begins with `cd /var/www/muhoko`, so it always targets the correct project folder even when launched from another directory.
+
+This symlink method is convenient because it always points to the real file. If you prefer a shorter command name, create a link named `deploy` instead:
+
+```bash
+sudo ln -s /var/www/muhoko/deploy.sh /usr/local/bin/deploy
+```
+
+If the shell says `command not found` after linking, run:
+
+```bash
+hash -r
+```
+
+or open a new terminal and try again.
+
+This script assumes the project is deployed at `/var/www/muhoko` and that the remote branch is `main`.
 
 ## Working with the app
 

@@ -19,3 +19,5 @@ use App\Http\Middleware\EnsureUserIsCollector;
 Route::middleware(['auth', EnsureUserIsCollector::class])->group(function () {
     Route::view('/collector', 'collector.dashboard')->name('collector.dashboard');
 });
+//route to redirect  to login page if user is not logged in in the collector dashboard
+Route::redirect('/login', '/admin/login')->name('login');

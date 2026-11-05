@@ -2,7 +2,7 @@
 
 namespace App\Filament\Resources\Farmers\Schemas;
 
-use App\models\Route;
+use App\Models\Route;
 use App\Models\Farmer;
 
 use Filament\Forms\Components\Select;

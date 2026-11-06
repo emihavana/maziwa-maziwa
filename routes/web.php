@@ -5,6 +5,7 @@ use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\MilkController;
 
 use App\Http\Controllers\FarmerReportController;
+use App\Http\Controllers\SalesreportController;
 use App\Http\Middleware\KeepCollectorsOutOfAdmin;
 
 //use App\Models\Farmer;
@@ -30,3 +31,7 @@ Route::redirect('/login', '/admin/login')->name('login');
 Route::get('/reports/farmers', [FarmerReportController::class, 'download'])
     ->middleware(['auth', KeepCollectorsOutOfAdmin::class])
     ->name('reports.farmers');
+//route to get the sales report download page
+Route::get('/reports/sales', [SalesReportController::class, 'download'])
+    ->middleware(['auth', KeepCollectorsOutOfAdmin::class])
+    ->name('reports.sales');

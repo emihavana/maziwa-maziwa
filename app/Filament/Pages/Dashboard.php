@@ -13,6 +13,7 @@ class Dashboard extends BaseDashboard
     protected function getHeaderActions(): array
     {
         return [
+            // button for Farmer Report Action
             Action::make('downloadFarmerReport')
                 ->label('Download farmer report')
                 ->icon('heroicon-o-arrow-down-tray')
@@ -59,6 +60,30 @@ class Dashboard extends BaseDashboard
                 ])
                 ->action(function (array $data, $livewire) {
                     $livewire->redirect(route('reports.farmers', $data));
+                }),
+
+            // button for Sales Report Action
+            Action::make('downloadSalesOverview')
+                ->label('Download sales report')
+                ->icon('heroicon-o-chart-bar')
+                ->color('success')
+                ->modalHeading('Sales Overview Report (PDF)')
+                ->modalSubmitActionLabel('Download PDF')
+                ->form([
+                    DatePicker::make('from')
+                        ->label('From')
+                        ->required()
+                        ->default(now()->startOfMonth())
+                        ->maxDate(now()),
+                    DatePicker::make('to')
+                        ->label('To')
+                        ->required()
+                        ->default(now())
+                        ->afterOrEqual('from')
+                        ->maxDate(now()),
+                ])
+                ->action(function (array $data, $livewire) {
+                    $livewire->redirect(route('reports.sales', $data));
                 }),
         ];
     }

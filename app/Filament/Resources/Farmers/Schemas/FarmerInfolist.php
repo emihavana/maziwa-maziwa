@@ -4,7 +4,6 @@ namespace App\Filament\Resources\Farmers\Schemas;
 
 use Filament\Infolists\Components\TextEntry;
 use Filament\Schemas\Schema;
-//use\App\models\Farmer;
 
 class FarmerInfolist
 {
@@ -16,20 +15,24 @@ class FarmerInfolist
                 TextEntry::make('name'),
                 TextEntry::make('route.name')
                     ->label('Route'),
-                //->numeric(),
                 TextEntry::make('phone')
+                    ->placeholder('-'),
+                TextEntry::make('national_id')
                     ->placeholder('-'),
                 TextEntry::make('current_month_debt')
                     ->numeric()
-                    ->label('Current Month Debt'),
-                TextEntry::make('national_id')
-                    ->placeholder('-'),
-                // TextEntry::make('address')
-                //  ->placeholder('-')
-                //  ->columnSpanFull(),
+                    ->label('Current Month Debt')
+                    ->weight('bold')
+                    ->color(fn($state) => $state > 0 ? 'danger' : 'success'),
                 TextEntry::make('account_balance')
-                    ->label('Account Balance')
+                    ->label('Gross Milk Earnings')
                     ->numeric(),
+
+                TextEntry::make('net_payable')
+                    ->label('Net Payout Balance')
+                    ->numeric()
+                    ->weight('bold')
+                    ->color(fn($state) => $state < 0 ? 'danger' : 'success'),
                 TextEntry::make('payment_frequency')
                     ->badge()
                     ->placeholder('-'),

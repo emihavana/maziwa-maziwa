@@ -7,14 +7,14 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Support\Carbon;
-//use Illuminate\Database\Eloquent\SoftDeletes;
+// use Illuminate\Database\Eloquent\SoftDeletes;
 
 class Farmer extends Model
 {
     use HasFactory;
 
     protected $fillable = [
-        'farmer_id', // <-- Added to allow the system to save the auto-generated ID
+        'farmer_id', // Alphanumeric custom ID (e.g., F0001)
         'name',
         'national_id',
         'phone',
@@ -22,33 +22,35 @@ class Farmer extends Model
     ];
 
     /**
-     * Intercept the creation of a farmer to auto-generate the alphanumeric ID.
+     * Intercept the creation of a farmer to auto-generate sequential alphanumeric IDs.
      */
-
-
     protected static function booted(): void
     {
         static::creating(function ($farmer) {
             if (empty($farmer->farmer_id)) {
-                // 1. Grab the highest alphanumeric ID present in the DB (e.g., "F0003")
+                // Grab the highest alphanumeric ID present in the DB (e.g., "F0003")
                 $lastFarmerId = self::max('farmer_id');
 
                 if ($lastFarmerId) {
-                    // 2. Strip out the letter 'F' to get the number "0003"
+                    // Strip out the letter prefix 'F' to parse numeric sequence
                     $numericPart = substr($lastFarmerId, 1);
 
-                    // 3. Turn it into an integer and add 1 (gives us 4)
-                    $nextNumber = (int)$numericPart + 1;
+                    // Increment sequence integer
+                    $nextNumber = (int) $numericPart + 1;
 
-                    // 4. Pad it back out with left-side zeros and prepended 'F' -> "F0004"
+                    // Pad with leading zeros and re-attach 'F' prefix (e.g., "F0004")
                     $farmer->farmer_id = 'F' . str_pad($nextNumber, 4, '0', STR_PAD_LEFT);
                 } else {
-                    // Start here if it's the very first row in your database
+                    // Seed initial record ID if database table is empty
                     $farmer->farmer_id = 'F0001';
                 }
             }
         });
     }
+
+    /* ---------------------------------------------------------------------- */
+    /*  RELATIONSHIPS                                                         */
+    /* ---------------------------------------------------------------------- */
 
     public function route(): BelongsTo
     {
@@ -65,19 +67,17 @@ class Farmer extends Model
         return $this->hasMany(Farmer_debt_transaction::class, 'farmer_id', 'farmer_id');
     }
 
-    public function getCurrentMonthDebtAttribute(): float
-    {
-        return (float) $this->debtTransactions()
-            ->where('transaction_type', 'debt')
-            ->whereMonth('transaction_date', now()->month)
-            ->whereYear('transaction_date', now()->year)
-            ->sum('amount');
-    }
+    /* ---------------------------------------------------------------------- */
+    /*  FINANCIAL ACCESSORS & CALCULATIONS                                    */
+    /* ---------------------------------------------------------------------- */
 
-    public function getNetPayableAttribute(): float
+    /**
+     * Calculates the total gross revenue earned purely from milk collections
+     * for the current calendar month. Executes aggregation directly in SQL 
+     * matching the effective price per liter assigned to the farmer's route.
+     */
+    public function getAccountBalanceAttribute(): float
     {
-        // Keep the total in SQL. We only need one number for the farmer balance,
-        // so we avoid loading the month collection rows into PHP and summing them there.
         $currentMonthEarnings = MilkCollection::query()
             ->where('farmer_id', $this->farmer_id)
             ->whereMonth('collection_date', now()->month)
@@ -93,18 +93,39 @@ class Farmer extends Model
             )), 0) as total_earnings', [$this->route_id])
             ->value('total_earnings');
 
-        return (float) (($currentMonthEarnings ?? 0.0) - $this->current_month_debt);
+        return (float) ($currentMonthEarnings ?? 0.0);
     }
 
-    public function getAccountBalanceAttribute(): float
+    /**
+     * Sums all debt transactions issued to the farmer within the current calendar month.
+     */
+    public function getCurrentMonthDebtAttribute(): float
     {
-        return $this->net_payable;
+        return (float) $this->debtTransactions()
+            ->where('transaction_type', 'debt')
+            ->whereMonth('transaction_date', now()->month)
+            ->whereYear('transaction_date', now()->year)
+            ->sum('amount');
     }
 
+    /**
+     * Calculates the final net payout balance due to the farmer
+     * by subtracting current month debt from total gross milk earnings.
+     */
+    public function getNetPayableAttribute(): float
+    {
+        return (float) ($this->account_balance - $this->current_month_debt);
+    }
+
+    /* ---------------------------------------------------------------------- */
+    /*  HISTORY & REPORTING ACCESSORS (LAST 30 DAYS)                          */
+    /* ---------------------------------------------------------------------- */
+
+    /**
+     * Plain text representation of debt history over the last 30 days.
+     */
     public function getLast30DaysDebtHistoryAttribute(): string
     {
-        // This is a small, row-based detail list for the farmer view, so fetching the
-        // last 30 days of rows is intentional and remains within a tight limit.
         $history = $this->debtTransactions()
             ->whereDate('transaction_date', '>=', now()->subDays(30)->toDateString())
             ->orderByDesc('transaction_date')
@@ -115,7 +136,7 @@ class Farmer extends Model
         }
 
         return $history
-            ->map(fn ($transaction) => sprintf(
+            ->map(fn($transaction) => sprintf(
                 '%s — KES %s%s',
                 $transaction->transaction_date ? $transaction->transaction_date->format('d M Y') : '--',
                 number_format((float) $transaction->amount, 2),
@@ -124,10 +145,11 @@ class Farmer extends Model
             ->implode(PHP_EOL);
     }
 
+    /**
+     * HTML table representation of debt history over the last 30 days for Filament Infolists.
+     */
     public function getLast30DaysDebtHistoryTableAttribute(): string
     {
-        // This remains a row query because the farmer detail page needs the actual debt entries
-        // rendered in a compact table; we keep the result bounded to 30 days.
         $history = $this->debtTransactions()
             ->whereDate('transaction_date', '>=', now()->subDays(30)->toDateString())
             ->orderByDesc('transaction_date')
@@ -152,10 +174,11 @@ class Farmer extends Model
             . '<tbody>' . $rows . '</tbody></table>';
     }
 
+    /**
+     * Plain text representation of milk collections over the last 30 days.
+     */
     public function getLast30DaysMilkCollectionHistoryAttribute(): string
     {
-        // This also stays as a row query because the page needs the real collection entries,
-        // not just a total. The date range keeps it efficient and readable.
         $history = $this->milkCollections()
             ->whereDate('collection_date', '>=', now()->subDays(30)->toDateString())
             ->orderByDesc('collection_date')
@@ -166,7 +189,7 @@ class Farmer extends Model
         }
 
         return $history
-            ->map(fn ($collection) => sprintf(
+            ->map(fn($collection) => sprintf(
                 '%s — %s L',
                 $collection->collection_date ? $collection->collection_date->format('d M Y') : '--',
                 number_format((float) $collection->qty, 2)
@@ -174,10 +197,11 @@ class Farmer extends Model
             ->implode(PHP_EOL);
     }
 
+    /**
+     * HTML table representation of milk collections over the last 30 days for Filament Infolists.
+     */
     public function getLast30DaysMilkCollectionHistoryTableAttribute(): string
     {
-        // Same rule as above: row-based display remains a limited result set,
-        // while numeric totals continue to be computed in SQL at the database layer.
         $history = $this->milkCollections()
             ->whereDate('collection_date', '>=', now()->subDays(30)->toDateString())
             ->orderByDesc('collection_date')

@@ -26,14 +26,15 @@ class FarmersTable
                 //>sortable(),
                 //extColumn::make('phone')
                 //>searchable(isIndividual: true),
-                //TextColumn::make('debt_balance')
-                // ->numeric()
-                //  ->sortable(),
+                TextColumn::make('current_month_debt')
+                    ->numeric()
+                    ->sortable(),
                 // TextColumn::make('national_id')
                 //->searchable(),
-                // TextColumn::make('account_balance')
-                //  ->numeric()
-                //->sortable(),
+                TextColumn::make('account_balance')
+                    ->label('Gross Balance')
+                    ->numeric()
+                    ->sortable(),
                 //  TextColumn::make('payment_frequency')
                 //   ->badge(),
                 // TextColumn::make('created_at')

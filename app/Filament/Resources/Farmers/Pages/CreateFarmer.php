@@ -8,6 +8,10 @@ use Filament\Resources\Pages\CreateRecord;
 class CreateFarmer extends CreateRecord
 {
     protected static string $resource = FarmerResource::class;
+    protected function getCreatedNotificationMessage(): ?string
+    {
+        return 'Farmer created successfully!';
+    }
 
     protected function getRedirectUrl(): string
     {

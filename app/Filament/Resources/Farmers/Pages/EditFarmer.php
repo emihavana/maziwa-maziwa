@@ -10,6 +10,10 @@ use Filament\Resources\Pages\EditRecord;
 class EditFarmer extends EditRecord
 {
     protected static string $resource = FarmerResource::class;
+    protected function getSavedNotificationMessage(): ?string
+    {
+        return 'Farmer updated successfully!';
+    }
 
     protected function getHeaderActions(): array
     {

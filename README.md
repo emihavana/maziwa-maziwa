@@ -101,6 +101,10 @@ The following changes were added to align the app with the real business workflo
   - User password fields are stored using Laravel's standard hashing flow.
   - The user form uses `Hash::make()` when a new password is submitted, and does not use a custom `password_hash` field.
 
+- Password reset support
+  - The app now includes the required `password_reset_tokens` migration so Filament password reset can function correctly.
+  - This supports the admin panel's built-in password reset flow.
+
 - Linux-safe Livewire casing
   - The Livewire directory casing was corrected to match the `App\Livewire` namespace to avoid Linux filesystem case-sensitivity issues.
 
@@ -116,6 +120,13 @@ The following changes were added to align the app with the real business workflo
 - Collector workflow improvements
   - Collector modals now use Alpine.js for UI state, keeping form behavior smooth without unnecessary Livewire state duplication.
   - Session expiry flow redirects users back to the login page when needed.
+
+- Farmer and sales reporting downloads
+  - Admin users can download farmer milk collection reports and sales reports directly from the dashboard.
+  - Reports are generated in Blade and exported in a printable, admin-friendly format.
+
+- Case-sensitivity fixes for Linux deployment
+  - Report view files and Livewire paths were normalized to the correct casing so the app works reliably on Linux-based hosting.
 
 ## Default seeded users
 
@@ -235,6 +246,8 @@ Typical migration order includes:
 - sales
 - sale_prices
 - farmer_debt_transactions
+- password_reset_tokens
+- sessions and queue/cache tables as needed
 
 ## Business logic notes
 
@@ -255,6 +268,13 @@ The dashboard uses live business formulas to calculate the main operational tota
 - Total Revenue = Σ (Sale Qty × Sale Price Per Liter) − Σ (Milk Collected Qty × Effective Route Price)
 - Net Farmer Earnings = Farmer Earnings − Current Month Farmer Debt
 - Current Month Debt = Σ (Debt Transactions of type `debt` for the current month)
+
+The dashboard also exposes operational reporting for:
+
+- farmers by route and collection status
+- milk collection totals by day and month
+- sales revenue totals and breakdowns
+- printable report downloads for farmer collection activity and sales activity
 
 Example formulas:
 

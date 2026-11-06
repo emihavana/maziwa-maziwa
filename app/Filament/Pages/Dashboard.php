@@ -65,7 +65,7 @@ class Dashboard extends BaseDashboard
             // button for Sales Report Action
             Action::make('downloadSalesOverview')
                 ->label('Download sales report')
-                ->icon('heroicon-o-chart-bar')
+                ->icon('heroicon-o-arrow-down-tray')
                 ->color('success')
                 ->modalHeading('Sales Overview Report (PDF)')
                 ->modalSubmitActionLabel('Download PDF')

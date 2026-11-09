@@ -1,19 +1,18 @@
 {{--
-    ALPINE: the root element holds ALL the Alpine state for this page.
-    - modalOpen  : true/false, whether the collect modal is visible (no server request)
-    - routeOpen  : true/false, whether the route dropdown is open
-    - toast      : the success message popup (show flag, text, and the hide timer)
-    - form       : the modal's data (farmer id, name, qty, notes, edit flag), filled when you click Collect
-    - errors     : validation messages shown under the inputs (checked in the browser first)
-    - saving     : true while the save request is running (disables the Save button)
-    - openModal(): fills `form` from data already on the page, then shows the modal
-    - closeModal(): hides the modal, no request
-    - save()     : validates in the browser, then makes the ONE server request ($wire.saveCollection)
-    - notify()   : shows the toast and hides it after 3 seconds
-    Use `this.$wire` (not bare `$wire`) because we are inside an x-data method.
+ALPINE: the root element holds ALL the Alpine state for this page.
+- modalOpen : true/false, whether the collect modal is visible (no server request)
+- routeOpen : true/false, whether the route dropdown is open
+- toast : the success message popup (show flag, text, and the hide timer)
+- form : the modal's data (farmer id, name, qty, notes, edit flag), filled when you click Collect
+- errors : validation messages shown under the inputs (checked in the browser first)
+- saving : true while the save request is running (disables the Save button)
+- openModal(): fills `form` from data already on the page, then shows the modal
+- closeModal(): hides the modal, no request
+- save() : validates in the browser, then makes the ONE server request ($wire.saveCollection)
+- notify() : shows the toast and hides it after 3 seconds
+Use `this.$wire` (not bare `$wire`) because we are inside an x-data method.
 --}}
-<div class="space-y-6 {{ $darkMode ? 'dark-theme' : '' }}"
-    x-data="{
+<div class="space-y-6 {{ $darkMode ? 'dark-theme' : '' }}" x-data="{
         modalOpen: false,
         routeOpen: false,
 
@@ -68,13 +67,10 @@
                 this.saving = false;
             }
         }
-    }"
-    {{-- ALPINE: Livewire dispatches 'collection-saved' after a successful save; we close the modal --}}
-    @collection-saved.window="modalOpen = false"
-    {{-- ALPINE: Livewire dispatches 'notify' with a message; we show the toast --}}
-    @notify.window="notify($event.detail.message)"
-    {{-- ALPINE: pressing Esc closes the modal (only if it is open) --}}
-    @keydown.escape.window="modalOpen && closeModal()">
+    }" {{-- ALPINE: Livewire dispatches 'collection-saved' after a successful save; we close the modal --}}
+    @collection-saved.window="modalOpen = false" {{-- ALPINE: Livewire dispatches 'notify' with a message; we show the
+    toast --}} @notify.window="notify($event.detail.message)" {{-- ALPINE: pressing Esc closes the modal (only if it is
+    open) --}} @keydown.escape.window="modalOpen && closeModal()">
 
     {{-- Page header --}}
     <div class="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
@@ -86,56 +82,56 @@
         <div class="flex flex-wrap items-center gap-3">
 
             {{-- "Back to Admin" button, only rendered for admins ($isAdmin comes from the component) --}}
-            @if($isAdmin)
-            <a href="{{ $adminUrl }}"
-                class="rounded-full bg-slate-900 px-4 py-2 text-sm font-semibold text-white hover:bg-slate-800">
-                &larr; back to Admin
-            </a>
-            @endif
 
-            {{--
-                ALPINE: route dropdown.
-                - @click.outside closes it when you click anywhere else
-                - the button toggles `routeOpen`
-                - choosing an option calls the Livewire selectRoute() method, then closes the menu
-            --}}
-            <div class="relative" @click.outside="routeOpen = false">
-                <button type="button" @click="routeOpen = !routeOpen"
-                    class="flex items-center gap-2 rounded-full border border-slate-200 bg-slate-50 px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-100">
-                    <span>{{ $selectedRouteName }}</span>
-                    {{-- ALPINE: :class rotates the arrow when the menu is open --}}
-                    <svg class="h-4 w-4 transition" :class="routeOpen && 'rotate-180'" viewBox="0 0 20 20"
-                        fill="currentColor">
-                        <path fill-rule="evenodd"
-                            d="M5.23 7.21a.75.75 0 011.06.02L10 11.17l3.71-3.94a.75.75 0 111.08 1.04l-4.25 4.5a.75.75 0 01-1.08 0l-4.25-4.5a.75.75 0 01.02-1.06z"
-                            clip-rule="evenodd" />
-                    </svg>
-                </button>
+            @if(auth()->check() && auth()->user()->isAdmin())
+            <button type="button" wire:click="backToAdmin"
+                class="rounded-full border border-slate-200 bg-black-100 px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-100">
+                <-Back to Admin </button>
+                    @endif
 
-                {{-- ALPINE: x-show shows/hides the menu; x-cloak hides it before Alpine loads (no flash) --}}
-                <div x-show="routeOpen" x-cloak x-transition.origin.top.right
-                    class="absolute right-0 z-40 mt-2 w-56 overflow-hidden rounded-2xl border border-slate-200 bg-white py-1 shadow-lg">
-                    <button type="button" @click="$wire.selectRoute(null); routeOpen = false"
-                        class="block w-full px-4 py-2 text-left text-sm hover:bg-slate-100 {{ is_null($selectedRouteId) ? 'font-semibold text-slate-900' : 'text-slate-700' }}">
-                        All routes
+                    {{--
+                    ALPINE: route dropdown.
+                    - @click.outside closes it when you click anywhere else
+                    - the button toggles `routeOpen`
+                    - choosing an option calls the Livewire selectRoute() method, then closes the menu
+                    --}}
+                    <div class="relative" @click.outside="routeOpen = false">
+                        <button type="button" @click="routeOpen = !routeOpen"
+                            class="flex items-center gap-2 rounded-full border border-slate-200 bg-slate-50 px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-100">
+                            <span>{{ $selectedRouteName }}</span>
+                            {{-- ALPINE: :class rotates the arrow when the menu is open --}}
+                            <svg class="h-4 w-4 transition" :class="routeOpen && 'rotate-180'" viewBox="0 0 20 20"
+                                fill="currentColor">
+                                <path fill-rule="evenodd"
+                                    d="M5.23 7.21a.75.75 0 011.06.02L10 11.17l3.71-3.94a.75.75 0 111.08 1.04l-4.25 4.5a.75.75 0 01-1.08 0l-4.25-4.5a.75.75 0 01.02-1.06z"
+                                    clip-rule="evenodd" />
+                            </svg>
+                        </button>
+
+                        {{-- ALPINE: x-show shows/hides the menu; x-cloak hides it before Alpine loads (no flash) --}}
+                        <div x-show="routeOpen" x-cloak x-transition.origin.top.right
+                            class="absolute right-0 z-40 mt-2 w-56 overflow-hidden rounded-2xl border border-slate-200 bg-white py-1 shadow-lg">
+                            <button type="button" @click="$wire.selectRoute(null); routeOpen = false"
+                                class="block w-full px-4 py-2 text-left text-sm hover:bg-green-100 {{ is_null($selectedRouteId) ? 'font-semibold text-slate-900' : 'text-slate-700' }}">
+                                All routes
+                            </button>
+                            @foreach($routes as $route)
+                            <button type="button" @click="$wire.selectRoute({{ $route->id }}); routeOpen = false"
+                                class="block w-full px-4 py-2 text-left text-sm hover:bg-green-100 {{ $selectedRouteId === $route->id ? 'font-semibold text-slate-900' : 'text-slate-700' }}">
+                                {{ $route->name }}
+                            </button>
+                            @endforeach
+                        </div>
+                    </div>
+
+                    <button wire:click="toggleDarkMode"
+                        class="rounded-full border border-slate-200 bg-slate-50 px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-100">
+                        {{ $darkMode ? 'Light Mode' : 'Dark Mode' }}
                     </button>
-                    @foreach($routes as $route)
-                    <button type="button" @click="$wire.selectRoute({{ $route->id }}); routeOpen = false"
-                        class="block w-full px-4 py-2 text-left text-sm hover:bg-slate-100 {{ $selectedRouteId === $route->id ? 'font-semibold text-slate-900' : 'text-slate-700' }}">
-                        {{ $route->name }}
+                    <button wire:click="logout"
+                        class="rounded-full border border-slate-200 bg-slate-50 px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-100">
+                        Logout
                     </button>
-                    @endforeach
-                </div>
-            </div>
-
-            <button wire:click="toggleDarkMode"
-                class="rounded-full border border-slate-200 bg-slate-50 px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-100">
-                {{ $darkMode ? 'Light Mode' : 'Dark Mode' }}
-            </button>
-            <button wire:click="logout"
-                class="rounded-full border border-slate-200 bg-slate-50 px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-100">
-                Logout
-            </button>
         </div>
     </div>
 
@@ -193,8 +189,7 @@
 
         <div class="mt-4">
             {{-- Livewire v3 syntax: .live is required for typing to trigger a search request --}}
-            <input wire:model.live.debounce.250ms="searchQuery" type="search"
-                placeholder="Search by farmer name or ID"
+            <input wire:model.live.debounce.250ms="searchQuery" type="search" placeholder="Search by farmer name or ID"
                 class="w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-900 focus:border-slate-900 focus:outline-none" />
         </div>
 
@@ -205,16 +200,16 @@
             $collection = $farmer->milkCollections->first();
             $collected = $collection !== null;
             $buttonLabel = $collected
-                ? ($collection->collector_id === auth()->id() ? 'Update' : 'Correct')
-                : 'Collect';
+            ? ($collection->collector_id === auth()->id() ? 'Update' : 'Correct')
+            : 'Collect';
             // ALPINE: everything the modal needs, built here on the server and handed to
             // Alpine's openModal() when you click, so opening needs no server request.
             $payload = [
-                'id' => $farmer->farmer_id,
-                'name' => $farmer->name,
-                'qty' => $collection?->qty,
-                'notes' => $collection?->correction_reason,
-                'edit' => $collected,
+            'id' => $farmer->farmer_id,
+            'name' => $farmer->name,
+            'qty' => $collection?->qty,
+            'notes' => $collection?->correction_reason,
+            'edit' => $collected,
             ];
             @endphp
             <div
@@ -243,8 +238,8 @@
                     @endif
 
                     {{--
-                        ALPINE: opens the modal instantly with this farmer's data. No server request.
-                        @js() safely converts the PHP array into a JavaScript object.
+                    ALPINE: opens the modal instantly with this farmer's data. No server request.
+                    @js() safely converts the PHP array into a JavaScript object.
                     --}}
                     <button type="button" @click="openModal(@js($payload))"
                         class="shrink-0 rounded-full bg-slate-900 px-4 py-2 text-sm font-semibold text-white hover:bg-slate-800">
@@ -266,8 +261,8 @@
     @endif
 
     {{--
-        ALPINE: success toast. x-show="toast.show" displays it when notify() runs; notify() hides it
-        again after 3 seconds. x-text fills in the message. z-[60] keeps it above the modal (z-50).
+    ALPINE: success toast. x-show="toast.show" displays it when notify() runs; notify() hides it
+    again after 3 seconds. x-text fills in the message. z-[60] keeps it above the modal (z-50).
     --}}
     <div x-show="toast.show" x-cloak x-transition
         class="fixed bottom-6 left-1/2 z-[60] -translate-x-1/2 rounded-full bg-emerald-600 px-5 py-3 text-sm font-semibold text-white shadow-lg">
@@ -275,10 +270,10 @@
     </div>
 
     {{--
-        ALPINE: the modal.
-        - x-show="modalOpen" shows/hides it (x-cloak prevents a flash on page load)
-        - @click.self closes it when you click the dark backdrop (but not the white box)
-        - it sits outside the Farmers @if block so its state survives tab switches
+    ALPINE: the modal.
+    - x-show="modalOpen" shows/hides it (x-cloak prevents a flash on page load)
+    - @click.self closes it when you click the dark backdrop (but not the white box)
+    - it sits outside the Farmers @if block so its state survives tab switches
     --}}
     <div x-show="modalOpen" x-cloak x-transition.opacity
         class="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4" @click.self="closeModal()">
@@ -328,7 +323,8 @@
                         class="rounded-2xl border border-slate-200 px-5 py-3 text-sm font-semibold text-slate-700 hover:bg-slate-100">
                         Cancel
                     </button>
-                    {{-- ALPINE: :disabled and the two x-show labels follow the `saving` flag (prevents double submits) --}}
+                    {{-- ALPINE: :disabled and the two x-show labels follow the `saving` flag (prevents double submits)
+                    --}}
                     <button type="submit" :disabled="saving"
                         class="rounded-2xl bg-slate-900 px-5 py-3 text-sm font-semibold text-white hover:bg-slate-800 disabled:opacity-50">
                         <span x-show="!saving">Save</span>

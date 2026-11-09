@@ -63,7 +63,7 @@ class CollectorDashboard extends Component
 
     public function logout()
     {
-        auth()->guard('web')->logout(); // swap 'web' if your Filament panel uses a custom guard
+        auth()->guard('web')->logout(); 
 
         session()->invalidate();
         session()->regenerateToken();
@@ -131,23 +131,12 @@ class CollectorDashboard extends Component
 
     // Decides whether the "Back to Admin" button is shown.
     // Pick the line that matches how your app marks admins.
-    protected function isAdmin(): bool
+    // Redirect to the admin panel if the user is an admin
+    public function backToAdmin()
     {
-        $user = auth()->user();
-
-        if (! $user) {
-            return false;
+        if (auth()->user()?->isAdmin()) {
+            return redirect(Filament::getPanel('admin')->getUrl());
         }
-
-        // Option A (active): the user is allowed into the Filament admin panel.
-        // Warning: if collectors can also access the panel, they will see the button too.
-        return $user->canAccessPanel(Filament::getPanel('admin'));
-
-        // Option B: role column on users table
-        // return (bool) $user->is_admin;
-
-        // Option C: Spatie permissions
-        // return $user->hasRole('admin');
     }
 
     public function render()
@@ -172,11 +161,11 @@ class CollectorDashboard extends Component
 
         $selectedRoute = $this->selectedRouteId ? $routes->firstWhere('id', $this->selectedRouteId) : null;
         $selectedRouteName = $selectedRoute?->name ?? 'All Routes';
-
+   // calculating total farmers on selected route
         $totalFarmersRoute = $this->selectedRouteId
             ? Farmer::where('route_id', $this->selectedRouteId)->count()
             : Farmer::count();
-
+// calculating  farmers who milk was collected today in this selected route
         $todayFarmersRoute = Farmer::when($this->selectedRouteId, fn($q) => $q->where('route_id', $this->selectedRouteId))
             ->whereHas('milkCollections', fn($q) => $q->where('collection_date', $today))
             ->count();
@@ -200,7 +189,6 @@ class CollectorDashboard extends Component
             'totalFarmersRoute' => $totalFarmersRoute,
             'todayFarmersRoute' => $todayFarmersRoute,
             'remainingFarmersRoute' => $remainingFarmersRoute,
-            'isAdmin' => $this->isAdmin(),
             'adminUrl' => Filament::getPanel('admin')->getUrl(),
         ]);
     }

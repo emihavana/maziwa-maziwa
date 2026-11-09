@@ -33,6 +33,7 @@ class FarmersTable
                 //->searchable(),
                 TextColumn::make('account_balance')
                     ->label('Gross Balance')
+                    ->money('Ksh')
                     ->numeric()
                     ->sortable(),
                 //  TextColumn::make('payment_frequency')

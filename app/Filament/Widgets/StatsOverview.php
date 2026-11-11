@@ -15,6 +15,16 @@ class StatsOverview extends BaseWidget
 {
     // Auto-refresh every 30 seconds (replaces your old AJAX polling)
     protected ?string $pollingInterval = '60s';
+    protected int | string | array $columnSpan = 'full';
+
+    protected function getColumns(): int | array
+    {
+        return [
+            'default' => 2,
+            'md' => 3,
+            'xl' => 4,
+        ];
+    }
 
     protected function getStats(): array
     {

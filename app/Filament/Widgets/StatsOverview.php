@@ -6,6 +6,7 @@ use Filament\Widgets\StatsOverviewWidget as BaseWidget;
 use Filament\Widgets\StatsOverviewWidget\Stat;
 use App\Models\Farmer;
 use App\Models\Farmer_debt_transaction;
+use App\Models\FarmerPayout;
 use App\Models\MilkCollection;
 use App\Models\Route;
 use App\Models\Sale;
@@ -13,7 +14,7 @@ use App\Models\User;
 
 class StatsOverview extends BaseWidget
 {
-    // Auto-refresh every 30 seconds (replaces your old AJAX polling)
+    // Auto-refresh every 60 seconds
     protected ?string $pollingInterval = '60s';
     protected int | string | array $columnSpan = 'full';
 
@@ -31,8 +32,6 @@ class StatsOverview extends BaseWidget
         $monthStart = now()->startOfMonth();
         $monthEnd = now()->endOfMonth();
 
-        // We intentionally do the total in SQL instead of loading all collections into PHP.
-        // This keeps the dashboard fast and avoids the N+1/whole-table-load pattern.
         // Farmer earnings = total milk collected for the month valued at each route's effective price.
         $farmerEarnings = MilkCollection::query()
             ->whereBetween('collection_date', [$monthStart, $monthEnd])
@@ -105,6 +104,24 @@ class StatsOverview extends BaseWidget
         $todaySaleQty = Sale::whereDate('sale_date', today())->sum('qty');
         $monthSaleQty = Sale::whereBetween('sale_date', [$monthStart, $monthEnd])->sum('qty');
 
+        // --- M-PESA PAYOUT CALCULATIONS (PREVIOUS MONTH RUN) ---
+        // Since end-month payouts execute on the final day of the month, evaluating 
+        // the *previous* month ensures the numbers remain visible throughout the new month.
+        $lastMonthStart = now()->subMonth()->startOfMonth();
+        $lastMonthEnd = now()->subMonth()->endOfMonth();
+
+        $totalDisbursedLastMonth = FarmerPayout::where('status', 'success')
+            ->whereBetween('created_at', [$lastMonthStart, $lastMonthEnd])
+            ->sum('amount');
+
+        $failedPayoutsAmount = FarmerPayout::where('status', 'failed')
+            ->whereBetween('created_at', [$lastMonthStart, $lastMonthEnd])
+            ->sum('amount');
+
+        $failedPayoutsCount = FarmerPayout::where('status', 'failed')
+            ->whereBetween('created_at', [$lastMonthStart, $lastMonthEnd])
+            ->count();
+
         return [
             Stat::make('Total Farmers', Farmer::count())
                 ->description('Active in system')
@@ -155,6 +172,17 @@ class StatsOverview extends BaseWidget
                 ->description('Per transaction')
                 ->icon('heroicon-o-chart-bar')
                 ->color('info'),
+
+            // --- M-PESA B2C PAYOUT CARDS (LAST MONTH RUN) ---
+            Stat::make('B2C Disbursed (Last Month Run)', 'KES ' . number_format($totalDisbursedLastMonth, 2))
+                ->description('Paid out on end-month run')
+                ->icon('heroicon-o-check-badge')
+                ->color('success'),
+
+            Stat::make('Failed Payouts (Last Month)', 'KES ' . number_format($failedPayoutsAmount, 2))
+                ->description("{$failedPayoutsCount} failed transaction(s)")
+                ->icon('heroicon-o-exclamation-triangle')
+                ->color('danger'),
         ];
     }
 }

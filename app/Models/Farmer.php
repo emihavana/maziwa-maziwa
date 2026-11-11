@@ -67,6 +67,13 @@ class Farmer extends Model
         return $this->hasMany(Farmer_debt_transaction::class, 'farmer_id', 'farmer_id');
     }
 
+    /**
+     * Relationship: A farmer can have many payout history records.
+     */
+    public function payouts(): HasMany
+    {
+        return $this->hasMany(FarmerPayout::class, 'farmer_id', 'farmer_id');
+    }
     /* ---------------------------------------------------------------------- */
     /*  FINANCIAL ACCESSORS & CALCULATIONS                                    */
     /* ---------------------------------------------------------------------- */

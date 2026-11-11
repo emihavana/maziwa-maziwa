@@ -85,6 +85,40 @@ class Dashboard extends BaseDashboard
                 ->action(function (array $data, $livewire) {
                     $livewire->redirect(route('reports.sales', $data));
                 }),
+
+            // --- NEW: BUTTON FOR M-PESA PAYOUT REPORT ACTION ---
+            Action::make('downloadMpesaPayoutReport')
+                ->label('M-Pesa Payout Report')
+                ->icon('heroicon-o-banknotes')
+                ->color('warning')
+                ->modalHeading('M-Pesa Payout Report (PDF)')
+                ->modalSubmitActionLabel('Download Payout Report')
+                ->form([
+                    DatePicker::make('from')
+                        ->label('From Date')
+                        ->required()
+                        ->default(now()->startOfMonth())
+                        ->maxDate(now()),
+                    DatePicker::make('to')
+                        ->label('To Date')
+                        ->required()
+                        ->default(now())
+                        ->afterOrEqual('from')
+                        ->maxDate(now()),
+                    Select::make('status')
+                        ->label('Transaction Status')
+                        ->helperText('Filter by success or failure.')
+                        ->options([
+                            ''        => 'All Transactions',
+                            'success' => 'Successful Only',
+                            'failed'  => 'Failed Only',
+                            'pending' => 'Pending Only',
+                        ])
+                        ->default(''),
+                ])
+                ->action(function (array $data, $livewire) {
+                    $livewire->redirect(route('reports.mpesa.payouts', $data));
+                }),
         ];
     }
 }

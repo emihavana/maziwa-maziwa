@@ -3,7 +3,7 @@
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\MilkController;
-
+use App\Http\Controllers\MpesaPayoutReportController;
 use App\Http\Controllers\FarmerReportController;
 use App\Http\Controllers\SalesreportController;
 use App\Http\Middleware\KeepCollectorsOutOfAdmin;
@@ -35,3 +35,8 @@ Route::get('/reports/farmers', [FarmerReportController::class, 'download'])
 Route::get('/reports/sales', [SalesReportController::class, 'download'])
     ->middleware(['auth', KeepCollectorsOutOfAdmin::class])
     ->name('reports.sales');
+    //  M-Pesa Payout Report Route
+    Route::get('/reports/mpesa-payouts', [MpesaPayoutReportController::class, 'download'])
+     ->middleware(['auth', KeepCollectorsOutOfAdmin::class])
+    ->name('reports.mpesa.payouts');
+

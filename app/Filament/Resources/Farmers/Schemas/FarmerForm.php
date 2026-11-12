@@ -16,8 +16,7 @@ class FarmerForm
     {
         return $schema
             ->components([
-                //TextInput::make('farmer_id')
-                //  ->required(),
+            
                 TextInput::make('name')
                     ->required(),
                 Select::make('route_id')
@@ -39,11 +38,7 @@ class FarmerForm
                     ->validationMessages([
                         'unique' => 'This National ID number has already been taken.',
                     ]),
-                // Textarea::make('address')
-                // ->columnSpanFull(),
-                //TextInput::make('account_balance')
-                // ->numeric()
-                // ->default(0.0),
+                
                 // Select::make('payment_frequency')
                 //    ->options(['weekly' => 'Weekly', 'monthly' => 'Monthly', 'daily' => 'Daily'])
                 //   ->default('monthly'),

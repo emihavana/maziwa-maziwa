@@ -7,6 +7,9 @@ use App\Http\Controllers\MpesaPayoutReportController;
 use App\Http\Controllers\FarmerReportController;
 use App\Http\Controllers\SalesreportController;
 use App\Http\Middleware\KeepCollectorsOutOfAdmin;
+use App\Http\Controllers\FarmerPayoutController;
+
+use App\Http\Middleware\EnsureUserIsCollector;
 
 //use App\Models\Farmer;
 
@@ -19,7 +22,6 @@ Route::get('/', function () {
     return redirect()->route('filament.admin.auth.login');
 });
 
-use App\Http\Middleware\EnsureUserIsCollector;
 
 Route::view('/collector', 'collector.dashboard')
     ->middleware(['auth', EnsureUserIsCollector::class])
@@ -39,4 +41,4 @@ Route::get('/reports/sales', [SalesReportController::class, 'download'])
     Route::get('/reports/mpesa-payouts', [MpesaPayoutReportController::class, 'download'])
      ->middleware(['auth', KeepCollectorsOutOfAdmin::class])
     ->name('reports.mpesa.payouts');
-
+Route::get('/payouts/run-end-month', [FarmerPayoutController::class, 'disburseEndMonthBalances'])->name('payouts.execute');

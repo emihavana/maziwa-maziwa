@@ -1,168 +1,228 @@
 <?php
+
 namespace App\Http\Controllers;
 
-use Illuminate\Http\Request;
 use App\Models\Farmer;
 use App\Models\FarmerPayout;
-use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Log;
 use Iankumu\Mpesa\Facades\Mpesa;
+use Illuminate\Http\JsonResponse;
+use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Log;
 
 class FarmerPayoutController extends Controller
 {
-    /**
-     * Trigger end-of-month disbursements for all farmers with a net payable balance > 0.
-     */
-    public function disburseEndMonthBalances()
-    {
-        // 1. Fetch all farmers and filter those whose computed 'net_payable' attribute is greater than zero.
-        // net_payable = (milk collections * active route price) - current month debts.
-        $farmers = Farmer::all()->filter(function ($farmer) {
-            return $farmer->net_payable > 0;
-        });
+    /* ---------------------------------------------------------------
+     |  1. TRIGGER: send end-of-month payouts
+     | --------------------------------------------------------------- */
 
-        // 2. Safety check: If no farmers have money to collect, exit early and inform the admin.
+    /**
+     * Send each farmer's positive net balance via M-Pesa B2C.
+     *
+     * Safaricom only *queues* the payment here. The final outcome
+     * (success/failure) arrives later at handleResult().
+     */
+    public function disburseEndMonthBalances(): JsonResponse
+    {
+        // Only farmers owed money (net_payable = milk earnings - debts).
+        $farmers = Farmer::all()->filter(fn ($farmer) => $farmer->net_payable > 0);
+
         if ($farmers->isEmpty()) {
             return response()->json([
-                'status' => 'info',
-                'message' => 'No eligible farmers found with a positive balance for payout.'
-            ], 200);
+                'status'  => 'info',
+                'message' => 'No eligible farmers found with a positive balance.',
+            ]);
         }
 
-        // 3. Loop through every eligible farmer to process their individual payout.
+        // A long farmer list can exceed PHP's default time limit.
+        set_time_limit(0);
+
+        $summary = ['dispatched' => 0, 'skipped' => 0, 'failed' => 0];
+
         foreach ($farmers as $farmer) {
-            $amountToPay = $farmer->net_payable;
-            $phoneNumber = $farmer->phone; // Assuming 'phone' column stores the format 2547XXXXXXXX
 
-            // 4. Wrap financial operations in a Database Transaction. 
-            // If anything breaks halfway, DB::rollBack() prevents half-saved or corrupted records.
-            DB::beginTransaction();
+            // Guard: never pay the same farmer twice in one month.
+            // Failed payouts are not counted, so they can be retried.
+            $alreadyPaid = FarmerPayout::where('farmer_id', $farmer->farmer_id)
+                ->whereMonth('created_at', now()->month)
+                ->whereYear('created_at', now()->year)
+                ->whereIn('status', ['pending', 'success'])
+                ->exists();
+
+            if ($alreadyPaid) {
+                $summary['skipped']++;
+                continue;
+            }
+
+            // B2C only accepts whole shillings.
+            $amount = (int) floor($farmer->net_payable);
+            $phone  = $this->normalizePhone($farmer->phone);
+
+            if ($amount < 1 || $phone === null) {
+                $summary['skipped']++;
+                Log::warning("Payout skipped for {$farmer->farmer_id}: invalid amount or phone.");
+                continue;
+            }
+
+            // Write the audit record BEFORE calling M-Pesa so there is always
+            // a trace, even if the request crashes. No DB transaction here:
+            // an HTTP call to Safaricom cannot be rolled back.
+            $payout = FarmerPayout::create([
+                'farmer_id'    => $farmer->farmer_id,
+                'amount'       => $amount,
+                'phone_number' => $phone,
+                'status'       => 'pending',
+            ]);
+
             try {
-                // 5. Create a local ledger record marked as 'pending' BEFORE calling M-Pesa.
-                // This gives you an audit trail even if network issues occur.
-                $payout = FarmerPayout::create([
-                    'farmer_id' => $farmer->farmer_id,
-                    'amount' => $amountToPay,
-                    'phone_number' => $phoneNumber,
-                    'status' => 'pending'
-                ]);
+                // Signature: b2c($phone, $commandId, $amount, $remarks)
+                $response = Mpesa::b2c($phone, 'BusinessPayment', $amount, 'End Month Milk Payout');
+                $result   = $response->json();
 
-                // 6. Invoke Ian Kumu's package facade to hit Safaricom's B2C endpoint.
-                // Parameters: (Amount, Phone Number, Remarks/Description)
-                $response = Mpesa::b2c($amountToPay, $phoneNumber, 'End Month Milk Payout');
-
-                // 7. Check if Daraja accepted the request into its processing queue (ResponseCode '0').
-                if (isset($response['ResponseCode']) && $response['ResponseCode'] == '0') {
-                    
-                    // 8. Save Safaricom's tracking IDs so we can match the callback later.
+                if (($result['ResponseCode'] ?? null) == '0') {
+                    // Accepted into Safaricom's queue. Save the tracking IDs
+                    // so the callback can find this record later.
                     $payout->update([
-                        'conversation_id' => $response['ConversationID'] ?? null,
-                        'originator_conversation_id' => $response['OriginatorConversationID'] ?? null,
+                        'conversation_id'            => $result['ConversationID'] ?? null,
+                        'originator_conversation_id' => $result['OriginatorConversationID'] ?? null,
                     ]);
-
-                    // 9. Commit the database transaction since the API queue request succeeded.
-                    DB::commit();
-
+                    $summary['dispatched']++;
                 } else {
-                    // 10. If Safaricom rejected the request immediately (e.g., Paybill has insufficient utility funds),
-                    // mark the audit log as failed and roll back.
+                    // Rejected immediately (e.g. low float, bad credentials).
+                    // No callback will come, so mark it failed now.
                     $payout->update([
-                        'status' => 'failed',
-                        'result_desc' => json_encode($response)
+                        'status'      => 'failed',
+                        'result_desc' => json_encode($result),
                     ]);
-
-                    DB::rollBack();
+                    $summary['failed']++;
                 }
-
-            } catch (\Exception $e) {
-                // 11. Catch any unexpected server crashes, roll back the transaction, 
-                // and write the error to storage/logs/laravel.log for debugging.
-                DB::rollBack();
-                Log::error("B2C Payout Critical Exception for Farmer {$farmer->farmer_id}: " . $e->getMessage());
+            } catch (\Throwable $e) {
+                // Network error, bad config, etc.
+                $payout->update([
+                    'status'      => 'failed',
+                    'result_desc' => $e->getMessage(),
+                ]);
+                $summary['failed']++;
+                Log::error("B2C exception for {$farmer->farmer_id}: {$e->getMessage()}");
             }
         }
 
         return response()->json([
-            'status' => 'success',
-            'message' => 'End-month payout queue has been successfully dispatched.'
-        ], 200);
+            'status'  => 'success',
+            'summary' => $summary,
+        ]);
+    }
+
+    /* ---------------------------------------------------------------
+     |  2. CALLBACK: Safaricom reports the final result
+     | --------------------------------------------------------------- */
+
+    /**
+     * Result URL. Safaricom POSTs the final outcome of a B2C payment here.
+     */
+    public function handleResult(Request $request): JsonResponse
+    {
+        $payload = $request->all();
+        Log::info('M-Pesa B2C result received', $payload);
+
+        $result                   = $payload['Result'] ?? [];
+        $originatorConversationId = $result['OriginatorConversationID'] ?? null;
+        $resultCode               = $result['ResultCode'] ?? null;  // 0 = success
+        $resultDesc               = $result['ResultDesc'] ?? null;
+
+        $payout = $originatorConversationId
+            ? FarmerPayout::where('originator_conversation_id', $originatorConversationId)->first()
+            : null;
+
+        // Unknown transaction: log it and still acknowledge, so Safaricom stops retrying.
+        if (!$payout) {
+            Log::warning("B2C result for unknown payout: {$originatorConversationId}");
+            return $this->acknowledge();
+        }
+
+        // Idempotency: Safaricom may send the same callback more than once.
+        if ($payout->status !== 'pending') {
+            return $this->acknowledge();
+        }
+
+        if ((int) $resultCode === 0) {
+            $payout->update([
+                'status'         => 'success',
+                'receipt_number' => $this->extractParameter($result, 'TransactionReceipt'),
+                'result_desc'    => $resultDesc,
+            ]);
+        } else {
+            // Failed (e.g. subscriber not registered, limit exceeded).
+            // The farmer stays unpaid; failed payouts don't block a retry.
+            $payout->update([
+                'status'      => 'failed',
+                'result_desc' => "[{$resultCode}] {$resultDesc}",
+            ]);
+        }
+
+        return $this->acknowledge();
     }
 
     /**
-     * Handles Safaricom's asynchronous B2C result callback (Webhook).
-     * This runs automatically in the background when Safaricom finishes processing the payment.
+     * Timeout URL. Safaricom calls this if it could not process the request
+     * in time. The outcome is unknown, so we flag it for manual checking
+     * rather than assuming success or failure.
      */
-    public function handleCallback(Request $request)
+    public function handleTimeout(Request $request): JsonResponse
     {
-        // 1. Capture everything Safaricom posts back to your server and write to logs for safety audits.
-        $content = $request->all();
-        Log::info('Mpesa B2C Callback Received:', $content);
+        Log::warning('M-Pesa B2C timeout received', $request->all());
 
-        // 2. Extract key response indicators from the payload structure.
-        $result = $content['Result'] ?? [];
-        $originatorConversationId = $result['OriginatorConversationID'] ?? null;
-        $resultCode = $result['ResultCode'] ?? null; // '0' means absolute success; non-zero means failure.
-        $resultDesc = $result['ResultDesc'] ?? null;
+        $originatorConversationId = $request->input('Result.OriginatorConversationID');
 
-        // 3. Find the pending payout in your database using the OriginatorConversationID tracking code.
-        $payout = FarmerPayout::where('originator_conversation_id', $originatorConversationId)->first();
+        if ($originatorConversationId) {
+            FarmerPayout::where('originator_conversation_id', $originatorConversationId)
+                ->where('status', 'pending')
+                ->update(['result_desc' => 'Timed out. Verify manually in the M-Pesa portal.']);
+        }
 
-        // 4. Process only if the transaction exists in your local ledger.
-        if ($payout) {
-            
-            // 5. Check if the payment transaction succeeded (ResultCode 0).
-            if ($resultCode == 0) {
-                
-                // 6. Loop through Safaricom's result parameters to extract the official M-Pesa receipt number (e.g., QHG8...).
-                $receiptNumber = null;
-                if (isset($result['ResultParameters']['ResultParameter'])) {
-                    foreach ($result['ResultParameters']['ResultParameter'] as $param) {
-                        if ($param['Key'] === 'TransactionReceipt') {
-                            $receiptNumber = $param['Value'];
-                        }
-                    }
-                }
+        return $this->acknowledge();
+    }
 
-                // 7. Update the audit log to 'success' and save the official M-Pesa receipt code.
-                $payout->update([
-                    'status' => 'success',
-                    'receipt_number' => $receiptNumber,
-                    'result_desc' => $resultDesc
-                ]);
+    /* ---------------------------------------------------------------
+     |  3. HELPERS
+     | --------------------------------------------------------------- */
 
-            } else {
-                
-                // 8. Handle Failures: Safaricom returned an error code (e.g., M-Pesa full, subscriber barred, phone off).
-                DB::beginTransaction();
-                try {
-                    // Mark the payout record as failed with the reason given by Safaricom.
-                    $payout->update([
-                        'status' => 'failed',
-                        'result_desc' => $resultDesc
-                    ]);
+    /**
+     * Standard reply Safaricom expects from every callback.
+     */
+    private function acknowledge(): JsonResponse
+    {
+        return response()->json(['ResultCode' => 0, 'ResultDesc' => 'Accepted']);
+    }
 
-                    /* 
-                     * NOTE ON BALANCES:
-                     * Because your system computes account balances dynamically via active milk collections 
-                     * minus debts, a failed transaction means no money actually left the Paybill utility account.
-                     * However, since the payout failed, your admin dashboard should flag this specific farmer 
-                     * so they can be re-queued or paid via manual cash/float once they clear their M-Pesa space.
-                     */
+    /**
+     * Pull a named value (e.g. "TransactionReceipt") from Safaricom's
+     * ResultParameters list.
+     */
+    private function extractParameter(array $result, string $key): mixed
+    {
+        $parameters = $result['ResultParameters']['ResultParameter'] ?? [];
 
-                    DB::commit();
-
-                } catch (\Exception $e) {
-                    DB::rollBack();
-                    Log::error("Failed to handle callback failure state for Payout ID {$payout->id}: " . $e->getMessage());
-                }
+        foreach ($parameters as $parameter) {
+            if (($parameter['Key'] ?? null) === $key) {
+                return $parameter['Value'] ?? null;
             }
         }
 
-        // 9. MANDATORY: Always respond to Safaricom with ResultCode 0. 
-        // This acknowledges that your server successfully received and processed their callback.
-        return response()->json([
-            'ResultCode' => 0, 
-            'ResultDesc' => 'Accepted'
-        ], 200);
+        return null;
+    }
+
+    /**
+     * Convert 07XXXXXXXX, 01XXXXXXXX, 7XXXXXXXX, +2547XXXXXXXX etc. into
+     * 2547XXXXXXXX. Returns null if the number isn't a valid Kenyan mobile.
+     */
+    private function normalizePhone(?string $phone): ?string
+    {
+        $digits = preg_replace('/\D/', '', (string) $phone);
+
+        if (preg_match('/^0([71]\d{8})$/', $digits, $m)) return '254' . $m[1];
+        if (preg_match('/^([71]\d{8})$/', $digits, $m))  return '254' . $m[1];
+        if (preg_match('/^254[71]\d{8}$/', $digits))     return $digits;
+
+        return null;
     }
 }

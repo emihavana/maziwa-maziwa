@@ -34,5 +34,13 @@ return [
             'channel' => env('SLACK_BOT_USER_DEFAULT_CHANNEL'),
         ],
     ],
+    // Why config() and not env() directly: once you run `php artisan config:cache`,
+// env() returns null outside config files. Reading through config() is safe.
+'hostpinnacle' => [
+    'url'       => env('HOSTPINNACLE_URL'),
+    'user_id'   => env('HOSTPINNACLE_USER_ID'),
+    'password'  => env('HOSTPINNACLE_PASSWORD'),
+    'sender_id' => env('HOSTPINNACLE_SENDER_ID'),
+],
 
 ];

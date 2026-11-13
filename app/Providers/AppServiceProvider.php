@@ -21,6 +21,8 @@ class AppServiceProvider extends ServiceProvider
      */
     public function boot(): void
     {
-        //
-    }
+    
+    // Tell Laravel: whenever MilkCollection events fire, use this observer.
+    \App\Models\MilkCollection::observe(\App\Observers\MilkCollectionObserver::class);
 }
+    }

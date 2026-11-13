@@ -4,6 +4,7 @@ namespace App\Filament\Widgets;
 
 use Filament\Widgets\StatsOverviewWidget as BaseWidget;
 use Filament\Widgets\StatsOverviewWidget\Stat;
+use Illuminate\Support\Carbon;
 use App\Models\Farmer;
 use App\Models\Farmer_debt_transaction;
 use App\Models\FarmerPayout;
@@ -104,23 +105,63 @@ class StatsOverview extends BaseWidget
         $todaySaleQty = Sale::whereDate('sale_date', today())->sum('qty');
         $monthSaleQty = Sale::whereBetween('sale_date', [$monthStart, $monthEnd])->sum('qty');
 
-        // --- M-PESA PAYOUT CALCULATIONS (PREVIOUS MONTH RUN) ---
-        // Since end-month payouts execute on the final day of the month, evaluating 
-        // the *previous* month ensures the numbers remain visible throughout the new month.
-        $lastMonthStart = now()->subMonth()->startOfMonth();
-        $lastMonthEnd = now()->subMonth()->endOfMonth();
+        // ------------------------------------------------------------------
+        // M-PESA B2C PAYOUT CARDS
+        // ------------------------------------------------------------------
 
-        $totalDisbursedLastMonth = FarmerPayout::where('status', 'success')
-            ->whereBetween('created_at', [$lastMonthStart, $lastMonthEnd])
-            ->sum('amount');
+        // 1. Pick the payout cycle to display: the month of the most recent
+        //    payout attempt. Payouts run on the last day of a month, so this
+        //    keeps last month's results visible during the new month, and it
+        //    also works for sandbox tests done on any day.
+        $latestPayoutAt = FarmerPayout::query()->latest('created_at')->value('created_at');
+        $cycle = $latestPayoutAt ? Carbon::parse($latestPayoutAt) : now();
+        $cycleStart = $cycle->copy()->startOfMonth();
+        $cycleEnd = $cycle->copy()->endOfMonth();
+        $cycleLabel = $cycle->format('M Y');
 
-        $failedPayoutsAmount = FarmerPayout::where('status', 'failed')
-            ->whereBetween('created_at', [$lastMonthStart, $lastMonthEnd])
-            ->sum('amount');
+        // 2. One query: count and total amount per status for that cycle.
+        $payoutStats = FarmerPayout::query()
+            ->whereBetween('created_at', [$cycleStart, $cycleEnd])
+            ->selectRaw('status, COUNT(*) as total_count, COALESCE(SUM(amount), 0) as total_amount')
+            ->groupBy('status')
+            ->get()
+            ->keyBy('status');
 
-        $failedPayoutsCount = FarmerPayout::where('status', 'failed')
-            ->whereBetween('created_at', [$lastMonthStart, $lastMonthEnd])
+        // SENT & CONFIRMED: M-Pesa callback said success.
+        $sentCount = (int) ($payoutStats->get('success')?->total_count ?? 0);
+        $sentAmount = (float) ($payoutStats->get('success')?->total_amount ?? 0);
+
+        // PENDING: accepted by Safaricom, final result not received yet.
+        $pendingCount = (int) ($payoutStats->get('pending')?->total_count ?? 0);
+        $pendingAmount = (float) ($payoutStats->get('pending')?->total_amount ?? 0);
+
+        // STUCK PENDING: still pending after 30 minutes, so the callback
+        // probably never arrived and someone must check the M-Pesa statement.
+        $stuckPendingCount = FarmerPayout::query()
+            ->where('status', 'pending')
+            ->whereBetween('created_at', [$cycleStart, $cycleEnd])
+            ->where('updated_at', '<', now()->subMinutes(30))
             ->count();
+
+        // FAILED (STILL UNPAID): a retry creates a new row, so old failed rows
+        // of farmers who were later paid (or are pending) must not be counted.
+        $resolvedFarmerIds = FarmerPayout::query()
+            ->whereBetween('created_at', [$cycleStart, $cycleEnd])
+            ->whereIn('status', ['success', 'pending'])
+            ->pluck('farmer_id');
+
+        // One entry per farmer (largest failed amount), so several failed
+        // retries for the same farmer are not added up twice.
+        $unpaidFailed = FarmerPayout::query()
+            ->where('status', 'failed')
+            ->whereBetween('created_at', [$cycleStart, $cycleEnd])
+            ->whereNotIn('farmer_id', $resolvedFarmerIds)
+            ->selectRaw('farmer_id, MAX(amount) as amount')
+            ->groupBy('farmer_id')
+            ->get();
+
+        $failedCount = $unpaidFailed->count();
+        $failedAmount = (float) $unpaidFailed->sum('amount');
 
         return [
             Stat::make('Total Farmers', Farmer::count())
@@ -173,16 +214,28 @@ class StatsOverview extends BaseWidget
                 ->icon('heroicon-o-chart-bar')
                 ->color('info'),
 
-            // --- M-PESA B2C PAYOUT CARDS (LAST MONTH RUN) ---
-            Stat::make('B2C Disbursed (Last Month Run)', 'KES ' . number_format($totalDisbursedLastMonth, 2))
-                ->description('Paid out on end-month run')
+            // --- M-PESA B2C PAYOUT CARDS ---
+
+            // Green: money M-Pesa has confirmed as delivered.
+            Stat::make("Sent & Confirmed ({$cycleLabel})", 'KES ' . number_format($sentAmount, 2))
+                ->description("{$sentCount} payment(s) confirmed by M-Pesa")
                 ->icon('heroicon-o-check-badge')
                 ->color('success'),
 
-            Stat::make('Failed Payouts (Last Month)', 'KES ' . number_format($failedPayoutsAmount, 2))
-                ->description("{$failedPayoutsCount} failed transaction(s)")
+            // Yellow: waiting for Safaricom. Warns when some look stuck.
+            Stat::make("Pending Confirmation ({$cycleLabel})", 'KES ' . number_format($pendingAmount, 2))
+                ->description(
+                    "{$pendingCount} awaiting M-Pesa result"
+                    . ($stuckPendingCount > 0 ? " - {$stuckPendingCount} stuck over 30 min, check statement" : '')
+                )
+                ->icon('heroicon-o-clock')
+                ->color($stuckPendingCount > 0 ? 'danger' : ($pendingCount > 0 ? 'warning' : 'gray')),
+
+            // Red: farmers still unpaid after a failure. They are retried on the next run.
+            Stat::make("Failed, Still Unpaid ({$cycleLabel})", 'KES ' . number_format($failedAmount, 2))
+                ->description("{$failedCount} farmer(s) need a retry")
                 ->icon('heroicon-o-exclamation-triangle')
-                ->color('danger'),
+                ->color($failedCount > 0 ? 'danger' : 'success'),
         ];
     }
 }

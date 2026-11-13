@@ -6,6 +6,8 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Carbon\Carbon;
+use Illuminate\Support\Facades\DB;
 // use Illuminate\Database\Eloquent\SoftDeletes;
 
 /**
@@ -140,6 +142,64 @@ class Farmer extends Model
         // No collections this month gives null, so default to 0.
         return (float) ($currentMonthEarnings ?? 0.0);
     }
+
+
+
+/**
+ * Price per liter for a route on a given date.
+ * Picks the latest ACTIVE price whose effective_date is on or before that
+ * date, so a price change next week doesn't affect today's milk.
+ */
+public function priceOn(int $routeId, Carbon|string $date): float
+{
+    return (float) DB::table('milk_prices')
+        ->where('route_id', $routeId)
+        ->where('is_active', 1)
+        // Only prices already in force on that date
+        ->whereDate('effective_date', '<=', Carbon::parse($date)->toDateString())
+        // Newest effective date first; id breaks ties
+        ->orderByDesc('effective_date')
+        ->orderByDesc('id')
+        // value() returns null if no price exists; (float) turns that into 0
+        ->value('price_per_liter');
+}
+
+/**
+ * Gross milk earnings between two dates (inclusive).
+ * Uses each collection's OWN route_id for pricing, so if a farmer changes
+ * route mid-month, older collections keep the rate they were collected at.
+ */
+public function earningsBetween(Carbon $from, Carbon $to): float
+{
+    return (float) MilkCollection::query()
+        ->where('farmer_id', $this->farmer_id)   // only this farmer
+        ->whereBetween('collection_date', [$from->toDateString(), $to->toDateString()])
+        // For every collection row: qty x (price valid on its date for its route).
+        // The subquery finds that price; SUM adds all rows; COALESCE gives 0
+        // instead of null when there are no rows.
+        ->selectRaw('COALESCE(SUM(qty * (
+            SELECT mp.price_per_liter
+            FROM milk_prices mp
+            WHERE mp.route_id = milk_collections.route_id
+              AND mp.is_active = 1
+              AND mp.effective_date <= milk_collections.collection_date
+            ORDER BY mp.effective_date DESC, mp.id DESC
+            LIMIT 1
+        )), 0) as total')
+        ->value('total');
+}
+
+/** Total liters delivered on one day (sums multiple deliveries). */
+public function litersOn(Carbon $date): float
+{
+    return (float) $this->milkCollections()
+        ->whereDate('collection_date', $date->toDateString())
+        ->sum('qty');
+}
+
+
+
+
 
     /**
      * Total debt issued to the farmer in the current calendar month.

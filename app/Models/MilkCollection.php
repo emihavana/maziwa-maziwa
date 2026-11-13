@@ -43,9 +43,9 @@ class MilkCollection extends Model
     {
         return $this->belongsTo(User::class, 'corrected_by');
     }
-    //me thinking its supposed to have a specific route too
-    public function Route(): BelongsTo
-    {
-        return $this->belongsTo(Route::class);
-    }
+    
+public function route(): BelongsTo
+{
+    return $this->belongsTo(Route::class);
+}
 }

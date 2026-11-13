@@ -23,6 +23,17 @@ class FarmerPayoutController extends Controller
      */
     public function disburseEndMonthBalances(): JsonResponse
     {
+        // Only allow payouts on the last day of the month.
+    // In sandbox the check is skipped, so you can still test any day.
+    $isLastDay = now()->day === now()->daysInMonth;
+
+    if (config('mpesa.environment') !== 'sandbox' && ! $isLastDay) {
+        return response()->json([
+            'status'  => 'info',
+            'message' => 'Payouts can only be run on the last day of the month ('
+                         . now()->endOfMonth()->format('d M Y') . ').',
+        ], 403);
+    }
         // Only farmers owed money (net_payable = milk earnings - debts).
         $farmers = Farmer::all()->filter(fn ($farmer) => $farmer->net_payable > 0);
 

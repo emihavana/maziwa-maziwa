@@ -85,17 +85,31 @@ class Dashboard extends BaseDashboard
                 ->action(function (array $data, $livewire) {
                     $livewire->redirect(route('reports.sales', $data));
                             }),
-            Action::make('executeMpesaPayouts')
-                    ->label('Run B2C Payouts')
-                    ->icon('heroicon-o-paper-airplane')
-                    ->color('danger')
-                    ->requiresConfirmation()
-                    ->modalHeading('Execute End-Month M-Pesa Payouts')
-                    ->modalDescription('This will compute net balances for the previous month and dispatch live M-Pesa B2C transfers to eligible farmers. Proceed?')
-                    ->modalSubmitActionLabel('Yes, Send Payouts')
-                    ->action(function ($livewire) {
-                        return redirect()->to(route('payouts.execute'));
-                    }),
+                        Action::make('executeMpesaPayouts')
+                ->label('Run B2C Payouts')
+                ->icon('heroicon-o-paper-airplane')
+                ->color('danger')
+                ->requiresConfirmation()
+                ->modalHeading('Execute End-Month M-Pesa Payouts')
+                ->modalDescription('This will compute net balances for the previous month and dispatch live M-Pesa B2C transfers to eligible farmers. Proceed?')
+                ->modalSubmitActionLabel('Yes, Send Payouts')
+                        ->visible(fn () => config('mpesa.environment') === 'sandbox'
+                || now()->day === now()->daysInMonth)
+            ->action(function ($livewire) {
+                // Defensive: even if the button is somehow triggered, don't redirect
+                // the browser to a JSON endpoint on a day payouts are locked.
+                if (config('mpesa.environment') !== 'sandbox'
+                    && now()->day !== now()->daysInMonth) {
+                    \Filament\Notifications\Notification::make()
+                        ->title('Payouts are locked')
+                        ->body('This can only be run on ' . now()->endOfMonth()->format('d M Y') . '.')
+                        ->warning()
+                        ->send();
+                    return;
+                }
+
+        return redirect()->to(route('payouts.execute'));
+    }),
             // --- NEW: BUTTON FOR M-PESA PAYOUT REPORT ACTION ---
             Action::make('downloadMpesaPayoutReport')
                 ->label('M-Pesa Payout Report')

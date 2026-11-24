@@ -17,31 +17,12 @@ class FarmersTable
             ->defaultGroup("route.name")
             ->persistColumnSearchesInSession()
             ->columns([
-                //TextColumn::make('farmer_id')
-                //>searchable(),
+                TextColumn::make('farmer_id')
+                ->searchable(),
                 TextColumn::make('name')
                     ->searchable(isIndividual: true),
-                //TextColumn::make('route.name')
-                //->numeric()
-                //>sortable(),
-                //extColumn::make('phone')
-                //>searchable(isIndividual: true),
-                TextColumn::make('current_month_debt')
-                    ->numeric()
-                    ->sortable(),
-                // TextColumn::make('national_id')
-                //->searchable(),
-                TextColumn::make('account_balance')
-                    ->label('Gross Balance')
-                    ->money('Ksh')
-                    ->numeric()
-                    ->sortable(),
-                //  TextColumn::make('payment_frequency')
-                //   ->badge(),
-                // TextColumn::make('created_at')
-                // ->dateTime()
-                //  ->sortable()
-                // ->toggleable(isToggledHiddenByDefault: true),
+                
+                
             ])
             ->filters([
 

@@ -41,4 +41,6 @@ Route::get('/reports/sales', [SalesReportController::class, 'download'])
     Route::get('/reports/mpesa-payouts', [MpesaPayoutReportController::class, 'download'])
      ->middleware(['auth', KeepCollectorsOutOfAdmin::class])
     ->name('reports.mpesa.payouts');
-Route::get('/payouts/run-end-month', [FarmerPayoutController::class, 'disburseEndMonthBalances'])->name('payouts.execute');
+Route::get('/payouts/run-end-month', [FarmerPayoutController::class, 'disburseEndMonthBalances'])
+->middleware(['auth', KeepCollectorsOutOfAdmin::class])
+->name('payouts.execute');

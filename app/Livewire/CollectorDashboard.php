@@ -23,6 +23,12 @@ class CollectorDashboard extends Component
     public $activeSection = 'overview'; // 'overview', 'farmers'
     public $darkMode = false;
 
+    // ✅ NEW: the date the dashboard is "looking at".
+    // - Collectors: always today (enforced on the server, not just in the UI).
+    // - Admins: whatever they pick in the date input; defaults to today.
+    // Kept as a string (Y-m-d) so wire:model.live round-trips cleanly.
+    public string $collectionDate;
+
     // ALPINE: modal state ($showModal, $selectedFarmerId, $selectedFarmerName,
     // $isEditMode, $selectedFarmerRouteId) was REMOVED from here. The modal's data now
     // lives in the browser (Alpine `form`), so opening/closing makes no server request.
@@ -35,6 +41,30 @@ class CollectorDashboard extends Component
         // Load default route if present
         $firstRoute = Route::first();
         $this->selectedRouteId = session('selected_route_id', $firstRoute?->id);
+
+        // ✅ NEW: everyone starts on today. Collectors will stay here (enforced below).
+        $this->collectionDate = Carbon::today()->toDateString();
+    }
+
+    // ✅ NEW: fires automatically when the date input changes (wire:model.live).
+    // Security: collectors can't change the date — snap them back to today.
+    public function updatedCollectionDate($value): void
+    {
+        if (! auth()->user()?->isAdmin()) {
+            $this->collectionDate = Carbon::today()->toDateString();
+            return;
+        }
+
+        // Validate admins actually sent a real, non-future date.
+        // (Server-side mirror of the `max` attribute on the input.)
+        $this->validate([
+            'collectionDate' => ['required', 'date', 'before_or_equal:today'],
+        ]);
+
+        // ✅ NEW: tell Alpine to close the modal (its captured payload belongs to the old date).
+        // Kept page reset so pagination doesn't point past the new result set.
+        $this->resetPage();
+        $this->dispatch('date-changed');
     }
 
     public function selectRoute($routeId)
@@ -100,15 +130,25 @@ class CollectorDashboard extends Component
         // 404 instead of a foreign-key error if the farmer_id is wrong
         $farmer = Farmer::where('farmer_id', $farmerId)->firstOrFail();
 
-        // Edit mode is decided on the server (never trust a flag sent from the browser)
+        // ✅ GUARD: the ONE place that decides which date gets written.
+        // Collectors: always today, no matter what the browser sends.
+        // Admins: the date they picked (already validated as non-future in updatedCollectionDate).
+        // The UI is cosmetic — this is the actual rule.
+        $date = auth()->user()?->isAdmin()
+            ? $this->collectionDate
+            : Carbon::today()->toDateString();
+
+        // Edit mode is decided on the server (never trust a flag sent from the browser).
+        // ✅ CHANGED: check for an existing collection on the chosen date, not just today.
         $isEdit = MilkCollection::where('farmer_id', $farmer->farmer_id)
-            ->where('collection_date', Carbon::today()->toDateString())
+            ->where('collection_date', $date)
             ->exists();
 
         MilkCollection::updateOrCreate(
             [
                 'farmer_id' => $farmer->farmer_id,
-                'collection_date' => Carbon::today()->toDateString(),
+                // ✅ CHANGED: use $date instead of Carbon::today()
+                'collection_date' => $date,
             ],
             [
                 'qty' => $this->qty,
@@ -126,7 +166,9 @@ class CollectorDashboard extends Component
         $this->dispatch('collection-saved');
 
         // ALPINE: 'notify' makes Alpine show the toast, which hides itself after 3 seconds.
-        $this->dispatch('notify', message: 'Milk entry saved successfully!');
+        // ✅ CHANGED: mention the date so admins back-dating aren't surprised.
+        $this->dispatch('notify', message: 'Milk entry saved for '
+            . Carbon::parse($date)->format('M j, Y') . '!');
     }
 
     // Decides whether the "Back to Admin" button is shown.
@@ -141,7 +183,12 @@ class CollectorDashboard extends Component
 
     public function render()
     {
-        $today = Carbon::today()->toDateString();
+        // ✅ CHANGED: the whole page now reads from $date, not just today.
+        // For collectors this is still today — but only the server decides that.
+        $date = auth()->user()?->isAdmin()
+            ? $this->collectionDate
+            : Carbon::today()->toDateString();
+
         $routes = Route::all();
 
         $farmerQuery = Farmer::query()
@@ -150,10 +197,13 @@ class CollectorDashboard extends Component
                 $query->where('name', 'like', "%{$this->searchQuery}%")
                     ->orWhere('farmer_id', 'like', "%{$this->searchQuery}%");
             }))
-            ->when($this->activeTab === 'collected', fn($q) => $q->whereHas('milkCollections', fn($q) => $q->where('collection_date', $today)))
-            ->when($this->activeTab === 'pending', fn($q) => $q->whereDoesntHave('milkCollections', fn($q) => $q->where('collection_date', $today)))
+            // ✅ CHANGED: tab filters use $date instead of $today
+            ->when($this->activeTab === 'collected', fn($q) => $q->whereHas('milkCollections', fn($q) => $q->where('collection_date', $date)))
+            ->when($this->activeTab === 'pending', fn($q) => $q->whereDoesntHave('milkCollections', fn($q) => $q->where('collection_date', $date)))
             ->with([
-                'milkCollections' => fn($q) => $q->where('collection_date', $today),
+                // ✅ CHANGED: eager-load the collection for $date so the modal payload
+                // (qty/notes/edit flag) matches the date being viewed.
+                'milkCollections' => fn($q) => $q->where('collection_date', $date),
                 'route',
             ]);
 
@@ -161,23 +211,28 @@ class CollectorDashboard extends Component
 
         $selectedRoute = $this->selectedRouteId ? $routes->firstWhere('id', $this->selectedRouteId) : null;
         $selectedRouteName = $selectedRoute?->name ?? 'All Routes';
-   // calculating total farmers on selected route
+
+        // ✅ CHANGED: all counts below use $date instead of $today so admins see
+        // the numbers for the day they picked.
         $totalFarmersRoute = $this->selectedRouteId
             ? Farmer::where('route_id', $this->selectedRouteId)->count()
             : Farmer::count();
-// calculating  farmers who milk was collected today in this selected route
-        $todayFarmersRoute = Farmer::when($this->selectedRouteId, fn($q) => $q->where('route_id', $this->selectedRouteId))
-            ->whereHas('milkCollections', fn($q) => $q->where('collection_date', $today))
+
+        $dateFarmersRoute = Farmer::when($this->selectedRouteId, fn($q) => $q->where('route_id', $this->selectedRouteId))
+            ->whereHas('milkCollections', fn($q) => $q->where('collection_date', $date))
             ->count();
 
-        $remainingFarmersRoute = max(0, $totalFarmersRoute - $todayFarmersRoute);
+        $remainingFarmersRoute = max(0, $totalFarmersRoute - $dateFarmersRoute);
 
-        $totalCollectedQty = MilkCollection::where('collection_date', $today)
-            ->where('collector_id', auth()->id())
+        // ✅ CHANGED: sum for $date. For admins, DON'T filter by collector_id — they're
+        // viewing the whole day's picture, not just their own entries.
+        // (Collectors keep the same "my collections" behaviour as before.)
+        $totalCollectedQty = MilkCollection::where('collection_date', $date)
+            ->when(! auth()->user()?->isAdmin(), fn($q) => $q->where('collector_id', auth()->id()))
             ->sum('qty');
 
-        $collectedCount = $todayFarmersRoute;
-        $pendingCount = $totalFarmersRoute - $todayFarmersRoute;
+        $collectedCount = $dateFarmersRoute;
+        $pendingCount = $totalFarmersRoute - $dateFarmersRoute;
 
         return view('livewire.collector-dashboard', [
             'routes' => $routes,
@@ -187,9 +242,12 @@ class CollectorDashboard extends Component
             'pendingCount' => $pendingCount,
             'selectedRouteName' => $selectedRouteName,
             'totalFarmersRoute' => $totalFarmersRoute,
-            'todayFarmersRoute' => $todayFarmersRoute,
+            'todayFarmersRoute' => $dateFarmersRoute, // ✅ CHANGED: name kept for view compatibility
             'remainingFarmersRoute' => $remainingFarmersRoute,
             'adminUrl' => Filament::getPanel('admin')->getUrl(),
+            // ✅ NEW: exposed to the view so the "Showing collections for…" line
+            // and the modal's date reminder render correctly.
+            'collectionDate' => $date,
         ]);
     }
 }

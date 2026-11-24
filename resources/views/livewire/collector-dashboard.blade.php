@@ -70,7 +70,8 @@ Use `this.$wire` (not bare `$wire`) because we are inside an x-data method.
     }" {{-- ALPINE: Livewire dispatches 'collection-saved' after a successful save; we close the modal --}}
     @collection-saved.window="modalOpen = false" {{-- ALPINE: Livewire dispatches 'notify' with a message; we show the
     toast --}} @notify.window="notify($event.detail.message)" {{-- ALPINE: pressing Esc closes the modal (only if it is
-    open) --}} @keydown.escape.window="modalOpen && closeModal()">
+    open) --}} @keydown.escape.window="modalOpen && closeModal()" {{-- ✅ NEW: when the admin changes the date, close the
+    modal so its captured payload can't go stale --}} @date-changed.window="closeModal()">
 
     {{-- Page header --}}
     <div class="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
@@ -87,6 +88,22 @@ Use `this.$wire` (not bare `$wire`) because we are inside an x-data method.
             <button type="button" wire:click="backToAdmin"
                 class="rounded-full border border-slate-200 bg-black-100 px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-100">
                 <-Back to Admin </button>
+                    @endif
+
+                    {{-- ✅ NEW: date picker, rendered ONLY for admins.
+                    - wire:model.live so the component reloads farmers for the chosen date
+                    - max=today stops future dates in the browser
+                    - the server also enforces before_or_equal:today (see component)
+                    - collectors never see this; they stay locked to today on the server --}}
+                    @if(auth()->check() && auth()->user()->isAdmin())
+                    <div class="flex items-center gap-2">
+                        <label for="collectionDate" class="text-sm font-semibold text-slate-700">
+                            Collection date
+                        </label>
+                        <input id="collectionDate" type="date" wire:model.live="collectionDate"
+                            max="{{ now()->toDateString() }}"
+                            class="rounded-full border border-slate-200 bg-slate-50 px-4 py-2 text-sm text-slate-700 hover:bg-slate-100" />
+                    </div>
                     @endif
 
                     {{--
@@ -135,6 +152,17 @@ Use `this.$wire` (not bare `$wire`) because we are inside an x-data method.
         </div>
     </div>
 
+    {{-- ✅ NEW: context line so admins always know which day they're viewing/editing.
+    For collectors this shows "Today" — matches their locked behaviour. --}}
+    <p class="text-sm text-slate-500">
+        Showing collections for
+        <span class="font-semibold text-slate-700">
+            {{ \Carbon\Carbon::parse($collectionDate)->isToday()
+            ? 'Today (' . \Carbon\Carbon::parse($collectionDate)->format('M j, Y') . ')'
+            : \Carbon\Carbon::parse($collectionDate)->format('D, M j, Y') }}
+        </span>
+    </p>
+
     {{-- Section tabs --}}
     <div class="flex flex-wrap gap-3 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
         <button wire:click="selectSection('overview')"
@@ -159,8 +187,12 @@ Use `this.$wire` (not bare `$wire`) because we are inside an x-data method.
             </button>
         </div>
 
+        {{-- ✅ CHANGED: "Today's" wording only makes sense for collectors. For admins show the chosen date's label. --}}
         <div class="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
-            <div class="text-sm font-medium text-slate-500">Today's Milk Collected</div>
+            <div class="text-sm font-medium text-slate-500">
+                {{ \Carbon\Carbon::parse($collectionDate)->isToday() ? "Today's Milk Collected" : 'Milk Collected on ' .
+                \Carbon\Carbon::parse($collectionDate)->format('M j') }}
+            </div>
             <div class="mt-3 text-3xl font-semibold text-emerald-600">{{ number_format($totalCollectedQty, 2) }} L</div>
         </div>
 
@@ -286,6 +318,14 @@ Use `this.$wire` (not bare `$wire`) because we are inside an x-data method.
                     <h2 class="text-xl font-semibold text-slate-900"
                         x-text="form.edit ? 'Update Collection' : 'Collect Milk'"></h2>
                     <p class="text-sm text-slate-500" x-text="form.name"></p>
+
+                    {{-- ✅ NEW: in-modal reminder of which date is being written/edited.
+                    Admins see the chosen date; collectors see "Today". --}}
+                    <p class="mt-1 text-xs font-semibold text-emerald-600">
+                        {{ \Carbon\Carbon::parse($collectionDate)->isToday()
+                        ? 'Recording for Today'
+                        : 'Recording for ' . \Carbon\Carbon::parse($collectionDate)->format('D, M j, Y') }}
+                    </p>
                 </div>
                 {{-- ALPINE: closes the modal, no server request --}}
                 <button type="button" @click="closeModal()"

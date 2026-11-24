@@ -224,13 +224,15 @@ class CollectorDashboard extends Component
 
         $remainingFarmersRoute = max(0, $totalFarmersRoute - $dateFarmersRoute);
 
-        // ✅ CHANGED: sum for $date. For admins, DON'T filter by collector_id — they're
-        // viewing the whole day's picture, not just their own entries.
-        // (Collectors keep the same "my collections" behaviour as before.)
-        $totalCollectedQty = MilkCollection::where('collection_date', $date)
-            ->when(! auth()->user()?->isAdmin(), fn($q) => $q->where('collector_id', auth()->id()))
-            ->sum('qty');
-
+        // now admin and collector sees all  milk collected for this route
+            $totalCollectedQty = MilkCollection::where('collection_date', $date)
+    ->when(
+        $this->selectedRouteId,
+        fn ($q) => $q->whereHas('farmer', fn ($q) =>
+            $q->where('route_id', $this->selectedRouteId)
+        )
+    )
+    ->sum('qty');
         $collectedCount = $dateFarmersRoute;
         $pendingCount = $totalFarmersRoute - $dateFarmersRoute;
 

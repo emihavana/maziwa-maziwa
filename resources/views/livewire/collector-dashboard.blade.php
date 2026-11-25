@@ -158,7 +158,6 @@
         </div>
     </div>
     @endif
-
     {{-- ===================== FARMERS ===================== --}}
     @if($activeSection === 'farmers')
     <div class="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-700 dark:bg-slate-800">
@@ -166,7 +165,8 @@
             <h2 class="text-lg font-bold text-slate-900 dark:text-white">Farmers Directory</h2>
             <p class="text-sm text-slate-500 dark:text-slate-400">Tap collect to add or update today's milk entry.</p>
         </div>
-        <div class="relative">
+
+        <div class="relative mb-4">
             <div class="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-4">
                 <svg class="h-5 w-5 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
@@ -177,7 +177,8 @@
                 class="w-full rounded-2xl border border-slate-200 bg-slate-50 py-3 pl-11 pr-4 text-sm text-slate-900 transition focus:border-emerald-500 focus:bg-white focus:outline-none focus:ring-1 focus:ring-emerald-500 dark:border-slate-600 dark:bg-slate-900 dark:text-white dark:focus:border-emerald-500 dark:focus:bg-slate-800" />
         </div>
 
-        <div class="mt-4 space-y-3">
+        {{-- CHANGED: space-y-1.5 for tighter stacking --}}
+        <div class="space-y-1.5">
             @forelse($farmers as $farmer)
             @php
             $collection = $farmer->milkCollections->first();
@@ -186,20 +187,30 @@
             $payload = ['id' => $farmer->farmer_id, 'name' => $farmer->name, 'qty' => $collection?->qty, 'notes' =>
             $collection?->correction_reason, 'edit' => $collected];
             @endphp
+
+            {{-- CHANGED: py-2.5 px-4 instead of p-4. Darker bg for dark mode. --}}
             <div
-                class="flex flex-col gap-4 rounded-2xl border border-slate-200 bg-white p-4 transition-all hover:border-slate-300 hover:shadow-md dark:border-slate-700 dark:bg-slate-900/50 dark:hover:border-slate-600 sm:flex-row sm:items-center sm:justify-between">
-                <div class="min-w-0">
-                    <div class="truncate text-base font-bold text-slate-900 dark:text-white">{{ $farmer->name }}</div>
-                    <div class="mt-1 flex items-center gap-2 text-xs font-medium text-slate-500 dark:text-slate-400">
-                        <span class="bg-slate-100 dark:bg-slate-800 px-2 py-0.5 rounded-md">{{ $farmer->farmer_id
-                            }}</span>
+                class="flex flex-col gap-2 rounded-xl border border-slate-200 bg-white py-2.5 px-4 transition-all hover:border-slate-300 hover:shadow-sm dark:border-slate-700 dark:bg-slate-900 dark:hover:border-slate-600 sm:flex-row sm:items-center sm:justify-between">
+
+                {{-- CHANGED: text-sm instead of text-base --}}
+                <div class="min-w-0 flex items-center gap-3">
+                    <div class="truncate text-sm font-bold text-slate-900 dark:text-white">{{ $farmer->name }}</div>
+
+                    {{-- CHANGED: Smaller badges (text-[11px], px-1.5, py-0) --}}
+                    <div
+                        class="hidden sm:flex items-center gap-1.5 text-[11px] font-medium text-slate-500 dark:text-slate-400">
+                        <span
+                            class="bg-slate-100 dark:bg-slate-800 px-1.5 py-0.5 rounded text-slate-600 dark:text-slate-300">{{
+                            $farmer->farmer_id }}</span>
                         <span class="truncate">{{ $farmer->route?->name ?? 'Unassigned' }}</span>
                     </div>
                 </div>
-                <div class="flex items-center justify-between gap-3 sm:justify-end sm:shrink-0">
+
+                <div class="flex items-center justify-between gap-3 sm:justify-end sm:shrink-0 mt-2 sm:mt-0">
                     @if($collected)
+                    {{-- CHANGED: Smaller status badge --}}
                     <span
-                        class="inline-flex items-center whitespace-nowrap rounded-full bg-emerald-100 px-3 py-1 text-xs font-bold text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-400">
+                        class="inline-flex items-center whitespace-nowrap rounded-md bg-emerald-100 px-2 py-0.5 text-[11px] font-bold text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-400">
                         <svg class="mr-1 h-3 w-3" fill="currentColor" viewBox="0 0 20 20">
                             <path fill-rule="evenodd"
                                 d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z"
@@ -208,22 +219,26 @@
                         {{ number_format($collection->qty, 2) }} L
                     </span>
                     @else
+                    {{-- CHANGED: Smaller pending badge --}}
                     <span
-                        class="inline-flex items-center whitespace-nowrap rounded-full bg-amber-100 px-3 py-1 text-xs font-bold text-amber-700 dark:bg-amber-900/40 dark:text-amber-400">Pending</span>
+                        class="inline-flex items-center whitespace-nowrap rounded-md bg-amber-100 px-2 py-0.5 text-[11px] font-bold text-amber-700 dark:bg-amber-900/40 dark:text-amber-400">Not
+                        collected</span>
                     @endif
+
+                    {{-- CHANGED: Smaller button (px-3 py-1 text-xs) --}}
                     <button type="button" @click="openModal(@js($payload))"
-                        class="shrink-0 rounded-full bg-emerald-600 px-5 py-2 text-sm font-bold text-white shadow-sm transition hover:bg-emerald-500 hover:shadow focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:ring-offset-2 dark:focus:ring-offset-slate-900">{{
+                        class="shrink-0 rounded-md bg-emerald-500 px-3 py-1 text-xs font-bold text-white shadow-sm transition hover:bg-emerald-600 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:ring-offset-1 dark:focus:ring-offset-slate-900">{{
                         $buttonLabel }}</button>
                 </div>
             </div>
             @empty
-            <div class="rounded-2xl border border-dashed border-slate-300 py-12 text-center dark:border-slate-700">
+            <div class="rounded-xl border border-dashed border-slate-300 py-8 text-center dark:border-slate-700">
                 <p class="mt-2 text-sm font-medium text-slate-500 dark:text-slate-400">No farmers found matching your
                     search.</p>
             </div>
             @endforelse
         </div>
-        <div class="mt-6">{{ $farmers->links() }}</div>
+        <div class="mt-4">{{ $farmers->links() }}</div>
     </div>
     @endif
 

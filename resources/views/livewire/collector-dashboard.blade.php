@@ -74,7 +74,8 @@
             </div>
             @endif
 
-            <div class="relative" @click.outside="routeOpen = false">
+            {{-- FIX: Added z-50 to the container so it sits above everything else on mobile --}}
+            <div class="relative z-50" @click.outside="routeOpen = false">
                 <button type="button" @click="routeOpen = !routeOpen"
                     class="flex items-center gap-2 rounded-full border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-700 shadow-sm transition hover:bg-slate-50 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-200 dark:hover:bg-slate-700">
                     <span>{{ $selectedRouteName }}</span>
@@ -85,15 +86,17 @@
                             clip-rule="evenodd" />
                     </svg>
                 </button>
+
+                {{-- FIX: Added z-50, max-h-60, overflow-y-auto, and responsive width (w-48 sm:w-56) --}}
                 <div x-show="routeOpen" x-cloak x-transition.origin.top.right
-                    class="absolute right-0 z-40 mt-2 w-56 overflow-hidden rounded-2xl border border-slate-200 bg-white py-1 shadow-xl dark:border-slate-600 dark:bg-slate-800">
+                    class="absolute right-0 z-50 mt-2 w-48 sm:w-56 max-h-60 overflow-y-auto rounded-2xl border border-slate-200 bg-white py-1 shadow-xl dark:border-slate-600 dark:bg-slate-800">
                     <button type="button" @click="$wire.selectRoute(null); routeOpen = false"
                         class="block w-full px-4 py-2 text-left text-sm transition hover:bg-slate-50 dark:hover:bg-slate-700 {{ is_null($selectedRouteId) ? 'font-bold text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-900/20' : 'text-slate-700 dark:text-slate-300' }}">All
                         routes</button>
                     @foreach($routes as $route)
                     <button type="button" @click="$wire.selectRoute({{ $route->id }}); routeOpen = false"
-                        class="block w-full px-4 py-2 text-left text-sm transition hover:bg-slate-50 dark:hover:bg-slate-700 {{ $selectedRouteId === $route->id ? 'font-bold text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-900/20' : 'text-slate-700 dark:text-slate-300' }}">{{
-                        $route->name }}</button>
+                        class="block w-full px-4 py-2 text-left text-sm transition hover:bg-slate-50 dark:hover:bg-slate-700 {{ $selectedRouteId === $route->id ? 'font-bold text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-900/20' : 'text-slate-700 dark:text-slate-300' }}">
+                        {{ $route->name }}</button>
                     @endforeach
                 </div>
             </div>
@@ -177,7 +180,6 @@
                 class="w-full rounded-2xl border border-slate-200 bg-slate-50 py-3 pl-11 pr-4 text-sm text-slate-900 transition focus:border-emerald-500 focus:bg-white focus:outline-none focus:ring-1 focus:ring-emerald-500 dark:border-slate-600 dark:bg-slate-900 dark:text-white dark:focus:border-emerald-500 dark:focus:bg-slate-800" />
         </div>
 
-        {{-- CHANGED: space-y-1.5 for tighter stacking --}}
         <div class="space-y-1.5">
             @forelse($farmers as $farmer)
             @php
@@ -188,15 +190,12 @@
             $collection?->correction_reason, 'edit' => $collected];
             @endphp
 
-            {{-- CHANGED: py-2.5 px-4 instead of p-4. Darker bg for dark mode. --}}
             <div
                 class="flex flex-col gap-2 rounded-xl border border-slate-200 bg-white py-2.5 px-4 transition-all hover:border-slate-300 hover:shadow-sm dark:border-slate-700 dark:bg-slate-900 dark:hover:border-slate-600 sm:flex-row sm:items-center sm:justify-between">
 
-                {{-- CHANGED: text-sm instead of text-base --}}
                 <div class="min-w-0 flex items-center gap-3">
                     <div class="truncate text-sm font-bold text-slate-900 dark:text-white">{{ $farmer->name }}</div>
 
-                    {{-- CHANGED: Smaller badges (text-[11px], px-1.5, py-0) --}}
                     <div
                         class="hidden sm:flex items-center gap-1.5 text-[11px] font-medium text-slate-500 dark:text-slate-400">
                         <span
@@ -208,7 +207,6 @@
 
                 <div class="flex items-center justify-between gap-3 sm:justify-end sm:shrink-0 mt-2 sm:mt-0">
                     @if($collected)
-                    {{-- CHANGED: Smaller status badge --}}
                     <span
                         class="inline-flex items-center whitespace-nowrap rounded-md bg-emerald-100 px-2 py-0.5 text-[11px] font-bold text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-400">
                         <svg class="mr-1 h-3 w-3" fill="currentColor" viewBox="0 0 20 20">
@@ -219,13 +217,11 @@
                         {{ number_format($collection->qty, 2) }} L
                     </span>
                     @else
-                    {{-- CHANGED: Smaller pending badge --}}
                     <span
                         class="inline-flex items-center whitespace-nowrap rounded-md bg-amber-100 px-2 py-0.5 text-[11px] font-bold text-amber-700 dark:bg-amber-900/40 dark:text-amber-400">Not
                         collected</span>
                     @endif
 
-                    {{-- CHANGED: Smaller button (px-3 py-1 text-xs) --}}
                     <button type="button" @click="openModal(@js($payload))"
                         class="shrink-0 rounded-md bg-emerald-500 px-3 py-1 text-xs font-bold text-white shadow-sm transition hover:bg-emerald-600 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:ring-offset-1 dark:focus:ring-offset-slate-900">{{
                         $buttonLabel }}</button>

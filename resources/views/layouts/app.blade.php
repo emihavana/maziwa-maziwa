@@ -7,70 +7,59 @@
     <title>@yield('title', 'Milk Collection')</title>
     @vite(['resources/css/app.css', 'resources/js/app.js'])
     <style>
-        .dark-theme {
+        /* We changed .dark-theme to .dark so Tailwind's dark: classes work natively */
+        .dark {
             background: #0f172a;
             color: #f8fafc;
         }
 
-        .dark-theme .bg-white {
+        /* Force background colors to be dark when the 'dark' class is on <html> */
+        .dark .bg-white {
+            background-color: #1e293b !important;
+            /* This is slate-800 */
+        }
+
+        .dark .bg-slate-50 {
             background-color: #0f172a !important;
+            /* This is slate-900 */
         }
 
-        .dark-theme .bg-slate-50 {
-            background-color: #14243d !important;
-        }
-
-        .dark-theme .text-slate-900,
-        .dark-theme .text-slate-800 {
+        .dark .text-slate-900,
+        .dark .text-slate-800 {
             color: #f8fafc !important;
         }
 
-        .dark-theme .text-slate-500,
-        .dark-theme .text-slate-600,
-        .dark-theme .text-slate-700 {
+        .dark .text-slate-500,
+        .dark .text-slate-600,
+        .dark .text-slate-700 {
             color: #cbd5e1 !important;
         }
 
-        .dark-theme .border-slate-200 {
-            border-color: #475569 !important;
+        .dark .border-slate-200 {
+            border-color: #334155 !important;
+            /* slate-700 */
         }
 
-        .dark-theme .bg-emerald-50 {
+        .dark .bg-emerald-50 {
             background-color: #064e3b !important;
         }
 
-        .dark-theme .text-emerald-600 {
-            color: #22c55e !important;
-        }
-
-        .dark-theme .bg-amber-100 {
+        .dark .bg-amber-100 {
             background-color: #78350f !important;
         }
 
-        .dark-theme .text-amber-700 {
-            color: #f59e0b !important;
-        }
-
-        .dark-theme .bg-slate-100 {
-            background-color: #0f172a !important;
-        }
-
-        .dark-theme input,
-        .dark-theme textarea,
-        .dark-theme select {
+        .dark input,
+        .dark textarea,
+        .dark select {
             background: #0f172a !important;
             color: #f8fafc !important;
-            border-color: #475569 !important;
-        }
-
-        .dark-theme .rounded-2xl {
             border-color: #475569 !important;
         }
     </style>
     @livewireStyles
 </head>
 
-<body class="font-sans antialiased bg-slate-50 text-slate-900">
+<body class="font-sans antialiased bg-slate-50 text-slate-900 transition-colors duration-300">
     <div class="min-h-screen">
         @yield('content')
     </div>

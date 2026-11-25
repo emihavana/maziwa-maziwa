@@ -1,6 +1,5 @@
 <div class="space-y-6" x-data="{ 
         darkMode: @entangle('darkMode'),
-        // ... your other alpine state ...
         modalOpen: false,
         routeOpen: false,
         toast: { show: false, message: '', timer: null },
@@ -32,22 +31,13 @@
             }
         }
     }" x-init="$watch('darkMode', value => {
-        // This script forces the <body> and <html> tags to go dark 
-        // ONLY while this component is active.
         if (value) {
             document.documentElement.classList.add('dark');
-            document.body.classList.add('bg-slate-900');
-            document.body.classList.remove('bg-slate-50');
         } else {
             document.documentElement.classList.remove('dark');
-            document.body.classList.add('bg-slate-50');
-            document.body.classList.remove('bg-slate-900');
         }
     })" x-destroy="
-        // When you navigate away from this page, clean up the dark mode
         document.documentElement.classList.remove('dark');
-        document.body.classList.add('bg-slate-50');
-        document.body.classList.remove('bg-slate-900');
     " @collection-saved.window="modalOpen = false" @notify.window="notify($event.detail.message)"
     @keydown.escape.window="modalOpen && closeModal()" @date-changed.window="closeModal()">
 
@@ -134,6 +124,7 @@
             class="flex-1 rounded-xl px-4 py-2.5 text-sm font-semibold transition-all duration-200 {{ $activeSection === 'farmers' ? 'bg-slate-900 text-white shadow-md dark:bg-slate-600' : 'text-slate-600 hover:bg-slate-50 dark:text-slate-400 dark:hover:bg-slate-700/50' }}">Farmers</button>
     </div>
 
+    {{-- ===================== OVERVIEW ===================== --}}
     @if($activeSection === 'overview')
     <div class="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <div class="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-700 dark:bg-slate-800">
@@ -168,6 +159,7 @@
     </div>
     @endif
 
+    {{-- ===================== FARMERS ===================== --}}
     @if($activeSection === 'farmers')
     <div class="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-700 dark:bg-slate-800">
         <div class="mb-4">
@@ -235,6 +227,7 @@
     </div>
     @endif
 
+    {{-- Toast --}}
     <div x-show="toast.show" x-cloak x-transition
         class="fixed bottom-6 left-1/2 z-[60] flex -translate-x-1/2 items-center gap-2 rounded-full bg-slate-900 px-6 py-3 text-sm font-bold text-white shadow-xl dark:bg-emerald-600 dark:text-white">
         <svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -244,6 +237,7 @@
         <span x-text="toast.message"></span>
     </div>
 
+    {{-- Modal --}}
     <div x-show="modalOpen" x-cloak x-transition.opacity
         class="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm"
         @click.self="closeModal()">

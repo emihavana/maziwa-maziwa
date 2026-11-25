@@ -74,89 +74,97 @@ Use `this.$wire` (not bare `$wire`) because we are inside an x-data method.
     modal so its captured payload can't go stale --}} @date-changed.window="closeModal()">
 
     {{-- Page header --}}
-    <div class="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+    <div class="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
         <div class="space-y-1">
-            <h1 class="text-2xl font-semibold text-slate-900">Collector Dashboard</h1>
-            <p class="text-sm text-slate-500">Manage route collections, view farmers, and update records in real time.
-            </p>
+            <h1 class="text-2xl font-bold text-slate-900 dark:text-white">Collector Dashboard</h1>
+            <p class="text-sm text-slate-500 dark:text-slate-400">Manage route collections, view farmers, and update
+                records in real time.</p>
         </div>
         <div class="flex flex-wrap items-center gap-3">
 
             {{-- "Back to Admin" button, only rendered for admins ($isAdmin comes from the component) --}}
-
             @if(auth()->check() && auth()->user()->isAdmin())
             <button type="button" wire:click="backToAdmin"
-                class="rounded-full border border-slate-200 bg-black-100 px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-100">
-                <-Back to Admin </button>
-                    @endif
+                class="rounded-full border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-700 shadow-sm transition hover:bg-slate-50 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-200 dark:hover:bg-slate-700">
+                &larr; Back to Admin
+            </button>
+            @endif
 
-                    {{-- ✅ NEW: date picker, rendered ONLY for admins.
-                    - wire:model.live so the component reloads farmers for the chosen date
-                    - max=today stops future dates in the browser
-                    - the server also enforces before_or_equal:today (see component)
-                    - collectors never see this; they stay locked to today on the server --}}
-                    @if(auth()->check() && auth()->user()->isAdmin())
-                    <div class="flex items-center gap-2">
-                        <label for="collectionDate" class="text-sm font-semibold text-slate-700">
-                            Collection date
-                        </label>
-                        <input id="collectionDate" type="date" wire:model.live="collectionDate"
-                            max="{{ now()->toDateString() }}"
-                            class="rounded-full border border-slate-200 bg-slate-50 px-4 py-2 text-sm text-slate-700 hover:bg-slate-100" />
-                    </div>
-                    @endif
+            {{-- ✅ NEW: date picker, rendered ONLY for admins.
+            - wire:model.live so the component reloads farmers for the chosen date
+            - max=today stops future dates in the browser
+            - the server also enforces before_or_equal:today (see component)
+            - collectors never see this; they stay locked to today on the server --}}
+            @if(auth()->check() && auth()->user()->isAdmin())
+            <div class="flex items-center gap-2">
+                <label for="collectionDate" class="text-sm font-semibold text-slate-700 dark:text-slate-300">
+                    Date
+                </label>
+                <div class="relative">
+                    <input id="collectionDate" type="date" wire:model.live="collectionDate"
+                        max="{{ now()->toDateString() }}"
+                        class="cursor-pointer rounded-full border border-slate-200 bg-white px-4 py-2 pl-10 text-sm font-medium text-slate-700 shadow-sm transition hover:bg-slate-50 focus:border-emerald-500 focus:outline-none focus:ring-1 focus:ring-emerald-500 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-200 dark:hover:bg-slate-700 dark:[color-scheme:dark]" />
+                    {{-- Calendar Icon --}}
+                    <svg class="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-500 dark:text-slate-400"
+                        fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                            d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                    </svg>
+                </div>
+            </div>
+            @endif
 
-                    {{--
-                    ALPINE: route dropdown.
-                    - @click.outside closes it when you click anywhere else
-                    - the button toggles `routeOpen`
-                    - choosing an option calls the Livewire selectRoute() method, then closes the menu
-                    --}}
-                    <div class="relative" @click.outside="routeOpen = false">
-                        <button type="button" @click="routeOpen = !routeOpen"
-                            class="flex items-center gap-2 rounded-full border border-slate-200 bg-slate-50 px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-100">
-                            <span>{{ $selectedRouteName }}</span>
-                            {{-- ALPINE: :class rotates the arrow when the menu is open --}}
-                            <svg class="h-4 w-4 transition" :class="routeOpen && 'rotate-180'" viewBox="0 0 20 20"
-                                fill="currentColor">
-                                <path fill-rule="evenodd"
-                                    d="M5.23 7.21a.75.75 0 011.06.02L10 11.17l3.71-3.94a.75.75 0 111.08 1.04l-4.25 4.5a.75.75 0 01-1.08 0l-4.25-4.5a.75.75 0 01.02-1.06z"
-                                    clip-rule="evenodd" />
-                            </svg>
-                        </button>
+            {{--
+            ALPINE: route dropdown.
+            - @click.outside closes it when you click anywhere else
+            - the button toggles `routeOpen`
+            - choosing an option calls the Livewire selectRoute() method, then closes the menu
+            --}}
+            <div class="relative" @click.outside="routeOpen = false">
+                <button type="button" @click="routeOpen = !routeOpen"
+                    class="flex items-center gap-2 rounded-full border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-700 shadow-sm transition hover:bg-slate-50 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-200 dark:hover:bg-slate-700">
+                    <span>{{ $selectedRouteName }}</span>
+                    {{-- ALPINE: :class rotates the arrow when the menu is open --}}
+                    <svg class="h-4 w-4 transition-transform text-slate-500 dark:text-slate-400"
+                        :class="routeOpen && 'rotate-180'" viewBox="0 0 20 20" fill="currentColor">
+                        <path fill-rule="evenodd"
+                            d="M5.23 7.21a.75.75 0 011.06.02L10 11.17l3.71-3.94a.75.75 0 111.08 1.04l-4.25 4.5a.75.75 0 01-1.08 0l-4.25-4.5a.75.75 0 01.02-1.06z"
+                            clip-rule="evenodd" />
+                    </svg>
+                </button>
 
-                        {{-- ALPINE: x-show shows/hides the menu; x-cloak hides it before Alpine loads (no flash) --}}
-                        <div x-show="routeOpen" x-cloak x-transition.origin.top.right
-                            class="absolute right-0 z-40 mt-2 w-56 overflow-hidden rounded-2xl border border-slate-200 bg-white py-1 shadow-lg">
-                            <button type="button" @click="$wire.selectRoute(null); routeOpen = false"
-                                class="block w-full px-4 py-2 text-left text-sm hover:bg-green-100 {{ is_null($selectedRouteId) ? 'font-semibold text-slate-900' : 'text-slate-700' }}">
-                                All routes
-                            </button>
-                            @foreach($routes as $route)
-                            <button type="button" @click="$wire.selectRoute({{ $route->id }}); routeOpen = false"
-                                class="block w-full px-4 py-2 text-left text-sm hover:bg-green-100 {{ $selectedRouteId === $route->id ? 'font-semibold text-slate-900' : 'text-slate-700' }}">
-                                {{ $route->name }}
-                            </button>
-                            @endforeach
-                        </div>
-                    </div>
-
-                    <button wire:click="toggleDarkMode"
-                        class="rounded-full border border-slate-200 bg-slate-50 px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-100">
-                        {{ $darkMode ? 'Light Mode' : 'Dark Mode' }}
+                {{-- ALPINE: x-show shows/hides the menu; x-cloak hides it before Alpine loads (no flash) --}}
+                <div x-show="routeOpen" x-cloak x-transition.origin.top.right
+                    class="absolute right-0 z-40 mt-2 w-56 overflow-hidden rounded-2xl border border-slate-200 bg-white py-1 shadow-xl dark:border-slate-600 dark:bg-slate-800">
+                    <button type="button" @click="$wire.selectRoute(null); routeOpen = false"
+                        class="block w-full px-4 py-2 text-left text-sm transition hover:bg-slate-50 dark:hover:bg-slate-700 {{ is_null($selectedRouteId) ? 'font-bold text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-900/20' : 'text-slate-700 dark:text-slate-300' }}">
+                        All routes
                     </button>
-                    <button wire:click="logout"
-                        class="rounded-full border border-slate-200 bg-slate-50 px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-100">
-                        Logout
+                    @foreach($routes as $route)
+                    <button type="button" @click="$wire.selectRoute({{ $route->id }}); routeOpen = false"
+                        class="block w-full px-4 py-2 text-left text-sm transition hover:bg-slate-50 dark:hover:bg-slate-700 {{ $selectedRouteId === $route->id ? 'font-bold text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-900/20' : 'text-slate-700 dark:text-slate-300' }}">
+                        {{ $route->name }}
                     </button>
+                    @endforeach
+                </div>
+            </div>
+
+            <button wire:click="toggleDarkMode"
+                class="rounded-full border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-700 shadow-sm transition hover:bg-slate-50 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-200 dark:hover:bg-slate-700">
+                {{ $darkMode ? 'Light Mode' : 'Dark Mode' }}
+            </button>
+            <button wire:click="logout"
+                class="rounded-full border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-700 shadow-sm transition hover:bg-red-50 hover:text-red-600 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-200 dark:hover:bg-red-900/30 dark:hover:text-red-400">
+                Logout
+            </button>
         </div>
     </div>
 
     {{-- ✅ NEW: context line so admins always know which day they're viewing/editing.
     For collectors this shows "Today" — matches their locked behaviour. --}}
-    <p class="text-sm text-slate-500">
+    <p class="text-sm text-slate-500 dark:text-slate-400">
         Showing collections for
-        <span class="font-semibold text-slate-700">
+        <span class="font-bold text-emerald-600 dark:text-emerald-400">
             {{ \Carbon\Carbon::parse($collectionDate)->isToday()
             ? 'Today (' . \Carbon\Carbon::parse($collectionDate)->format('M j, Y') . ')'
             : \Carbon\Carbon::parse($collectionDate)->format('D, M j, Y') }}
@@ -164,13 +172,14 @@ Use `this.$wire` (not bare `$wire`) because we are inside an x-data method.
     </p>
 
     {{-- Section tabs --}}
-    <div class="flex flex-wrap gap-3 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+    <div
+        class="flex flex-wrap gap-2 rounded-2xl border border-slate-200 bg-white p-2 shadow-sm dark:border-slate-700 dark:bg-slate-800">
         <button wire:click="selectSection('overview')"
-            class="rounded-full px-4 py-2 text-sm font-semibold {{ $activeSection === 'overview' ? 'bg-slate-900 text-white' : 'bg-slate-50 text-slate-700 border border-slate-200' }}">
+            class="flex-1 rounded-xl px-4 py-2.5 text-sm font-semibold transition-all duration-200 {{ $activeSection === 'overview' ? 'bg-slate-900 text-white shadow-md dark:bg-slate-600' : 'text-slate-600 hover:bg-slate-50 dark:text-slate-400 dark:hover:bg-slate-700/50' }}">
             Overview
         </button>
         <button wire:click="selectSection('farmers')"
-            class="rounded-full px-4 py-2 text-sm font-semibold {{ $activeSection === 'farmers' ? 'bg-slate-900 text-white' : 'bg-slate-50 text-slate-700 border border-slate-200' }}">
+            class="flex-1 rounded-xl px-4 py-2.5 text-sm font-semibold transition-all duration-200 {{ $activeSection === 'farmers' ? 'bg-slate-900 text-white shadow-md dark:bg-slate-600' : 'text-slate-600 hover:bg-slate-50 dark:text-slate-400 dark:hover:bg-slate-700/50' }}">
             Farmers
         </button>
     </div>
@@ -178,51 +187,67 @@ Use `this.$wire` (not bare `$wire`) because we are inside an x-data method.
     {{-- ===================== OVERVIEW ===================== --}}
     @if($activeSection === 'overview')
     <div class="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        <div class="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
-            <div class="text-sm font-medium text-slate-500">Selected Route</div>
-            <div class="mt-3 text-xl font-semibold text-slate-900">{{ $selectedRouteName ?? 'All routes' }}</div>
+        {{-- Card 1 --}}
+        <div class="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-700 dark:bg-slate-800">
+            <div class="text-sm font-medium text-slate-500 dark:text-slate-400">Selected Route</div>
+            <div class="mt-2 text-2xl font-bold text-slate-900 dark:text-white truncate">{{ $selectedRouteName ?? 'All
+                routes' }}</div>
+            @if($selectedRouteId)
             <button wire:click="selectRoute(null)"
-                class="mt-4 inline-flex items-center rounded-full border border-slate-200 bg-slate-50 px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-100">
+                class="mt-4 inline-flex items-center rounded-full border border-slate-200 bg-slate-50 px-3 py-1.5 text-xs font-semibold text-slate-700 transition hover:bg-slate-100 dark:border-slate-600 dark:bg-slate-700 dark:text-slate-300 dark:hover:bg-slate-600">
                 Clear route
             </button>
+            @endif
         </div>
 
         {{-- ✅ CHANGED: "Today's" wording only makes sense for collectors. For admins show the chosen date's label. --}}
-        <div class="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
-            <div class="text-sm font-medium text-slate-500">
-                {{ \Carbon\Carbon::parse($collectionDate)->isToday() ? "Today's Milk Collected" : 'Milk Collected on ' .
-                \Carbon\Carbon::parse($collectionDate)->format('M j') }}
+        {{-- Card 2 --}}
+        <div class="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-700 dark:bg-slate-800">
+            <div class="text-sm font-medium text-slate-500 dark:text-slate-400">
+                {{ \Carbon\Carbon::parse($collectionDate)->isToday() ? "Today's Milk" : 'Milk Collected' }}
             </div>
-            <div class="mt-3 text-3xl font-semibold text-emerald-600">{{ number_format($totalCollectedQty, 2) }} L</div>
+            <div class="mt-2 text-3xl font-extrabold text-emerald-500 dark:text-emerald-400">{{
+                number_format($totalCollectedQty, 2) }} <span class="text-xl">L</span></div>
         </div>
 
-        <div class="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
-            <div class="text-sm font-medium text-slate-500">Farmers Collected</div>
-            <div class="mt-3 text-3xl font-semibold text-slate-900">{{ $collectedCount }}</div>
-            <div class="text-sm text-slate-500">{{ $pendingCount }} pending</div>
+        {{-- Card 3 --}}
+        <div class="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-700 dark:bg-slate-800">
+            <div class="text-sm font-medium text-slate-500 dark:text-slate-400">Farmers Collected</div>
+            <div class="mt-2 text-3xl font-extrabold text-blue-600 dark:text-blue-400">{{ $collectedCount }}</div>
+            <div
+                class="mt-1 text-xs font-medium text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-900/30 inline-block px-2 py-0.5 rounded-full">
+                {{ $pendingCount }} pending</div>
         </div>
 
-        <div class="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
-            <div class="text-sm font-medium text-slate-500">Total Route Farmers</div>
-            <div class="mt-3 text-3xl font-semibold text-slate-900">{{ $totalFarmersRoute }}</div>
-            <div class="text-sm text-slate-500">Remaining: {{ $remainingFarmersRoute }}</div>
+        {{-- Card 4 --}}
+        <div class="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-700 dark:bg-slate-800">
+            <div class="text-sm font-medium text-slate-500 dark:text-slate-400">Total Route Farmers</div>
+            <div class="mt-2 text-3xl font-extrabold text-slate-900 dark:text-white">{{ $totalFarmersRoute }}</div>
+            <div class="mt-1 text-xs font-medium text-slate-500 dark:text-slate-400">Remaining: {{
+                $remainingFarmersRoute }}</div>
         </div>
     </div>
     @endif
 
     {{-- ===================== FARMERS ===================== --}}
     @if($activeSection === 'farmers')
-    <div class="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+    <div class="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-700 dark:bg-slate-800">
 
-        <div>
-            <h2 class="text-lg font-semibold text-slate-900">Farmers</h2>
-            <p class="text-sm text-slate-500">Tap collect to add or update today's milk entry.</p>
+        <div class="mb-4">
+            <h2 class="text-lg font-bold text-slate-900 dark:text-white">Farmers Directory</h2>
+            <p class="text-sm text-slate-500 dark:text-slate-400">Tap collect to add or update today's milk entry.</p>
         </div>
 
-        <div class="mt-4">
+        <div class="relative">
             {{-- Livewire v3 syntax: .live is required for typing to trigger a search request --}}
+            <div class="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-4">
+                <svg class="h-5 w-5 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                        d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                </svg>
+            </div>
             <input wire:model.live.debounce.250ms="searchQuery" type="search" placeholder="Search by farmer name or ID"
-                class="w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-900 focus:border-slate-900 focus:outline-none" />
+                class="w-full rounded-2xl border border-slate-200 bg-slate-50 py-3 pl-11 pr-4 text-sm text-slate-900 transition focus:border-emerald-500 focus:bg-white focus:outline-none focus:ring-1 focus:ring-emerald-500 dark:border-slate-600 dark:bg-slate-900 dark:text-white dark:focus:border-emerald-500 dark:focus:bg-slate-800" />
         </div>
 
         {{-- Farmer cards: stacks vertically on all screens, action button always visible, no horizontal scroll --}}
@@ -245,13 +270,15 @@ Use `this.$wire` (not bare `$wire`) because we are inside an x-data method.
             ];
             @endphp
             <div
-                class="flex flex-col gap-3 rounded-2xl border border-slate-200 bg-slate-50 p-4 sm:flex-row sm:items-center sm:justify-between">
+                class="flex flex-col gap-4 rounded-2xl border border-slate-200 bg-white p-4 transition-all hover:border-slate-300 hover:shadow-md dark:border-slate-700 dark:bg-slate-900/50 dark:hover:border-slate-600 sm:flex-row sm:items-center sm:justify-between">
 
                 {{-- Farmer identity --}}
                 <div class="min-w-0">
-                    <div class="truncate font-semibold text-slate-900">{{ $farmer->name }}</div>
-                    <div class="text-xs text-slate-500">
-                        {{ $farmer->farmer_id }} &middot; {{ $farmer->route?->name ?? 'Unassigned' }}
+                    <div class="truncate text-base font-bold text-slate-900 dark:text-white">{{ $farmer->name }}</div>
+                    <div class="mt-1 flex items-center gap-2 text-xs font-medium text-slate-500 dark:text-slate-400">
+                        <span class="bg-slate-100 dark:bg-slate-800 px-2 py-0.5 rounded-md">{{ $farmer->farmer_id
+                            }}</span>
+                        <span class="truncate">{{ $farmer->route?->name ?? 'Unassigned' }}</span>
                     </div>
                 </div>
 
@@ -259,12 +286,17 @@ Use `this.$wire` (not bare `$wire`) because we are inside an x-data method.
                 <div class="flex items-center justify-between gap-3 sm:justify-end sm:shrink-0">
                     @if($collected)
                     <span
-                        class="inline-flex items-center whitespace-nowrap rounded-full bg-emerald-100 px-3 py-1 text-xs font-semibold text-emerald-700">
+                        class="inline-flex items-center whitespace-nowrap rounded-full bg-emerald-100 px-3 py-1 text-xs font-bold text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-400">
+                        <svg class="mr-1 h-3 w-3" fill="currentColor" viewBox="0 0 20 20">
+                            <path fill-rule="evenodd"
+                                d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z"
+                                clip-rule="evenodd" />
+                        </svg>
                         {{ number_format($collection->qty, 2) }} L
                     </span>
                     @else
                     <span
-                        class="inline-flex items-center whitespace-nowrap rounded-full bg-amber-100 px-3 py-1 text-xs font-semibold text-amber-700">
+                        class="inline-flex items-center whitespace-nowrap rounded-full bg-amber-100 px-3 py-1 text-xs font-bold text-amber-700 dark:bg-amber-900/40 dark:text-amber-400">
                         Pending
                     </span>
                     @endif
@@ -274,19 +306,25 @@ Use `this.$wire` (not bare `$wire`) because we are inside an x-data method.
                     @js() safely converts the PHP array into a JavaScript object.
                     --}}
                     <button type="button" @click="openModal(@js($payload))"
-                        class="shrink-0 rounded-full bg-slate-900 px-4 py-2 text-sm font-semibold text-white hover:bg-slate-800">
+                        class="shrink-0 rounded-full bg-emerald-600 px-5 py-2 text-sm font-bold text-white shadow-sm transition hover:bg-emerald-500 hover:shadow focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:ring-offset-2 dark:focus:ring-offset-slate-900">
                         {{ $buttonLabel }}
                     </button>
                 </div>
             </div>
             @empty
-            <div class="rounded-2xl border border-dashed border-slate-200 px-4 py-8 text-center text-slate-500">
-                No farmers found for this route.
+            <div class="rounded-2xl border border-dashed border-slate-300 py-12 text-center dark:border-slate-700">
+                <svg class="mx-auto h-12 w-12 text-slate-300 dark:text-slate-600" fill="none" viewBox="0 0 24 24"
+                    stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                        d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z" />
+                </svg>
+                <p class="mt-2 text-sm font-medium text-slate-500 dark:text-slate-400">No farmers found matching your
+                    search.</p>
             </div>
             @endforelse
         </div>
 
-        <div class="mt-4">
+        <div class="mt-6">
             {{ $farmers->links() }}
         </div>
     </div>
@@ -297,7 +335,11 @@ Use `this.$wire` (not bare `$wire`) because we are inside an x-data method.
     again after 3 seconds. x-text fills in the message. z-[60] keeps it above the modal (z-50).
     --}}
     <div x-show="toast.show" x-cloak x-transition
-        class="fixed bottom-6 left-1/2 z-[60] -translate-x-1/2 rounded-full bg-emerald-600 px-5 py-3 text-sm font-semibold text-white shadow-lg">
+        class="fixed bottom-6 left-1/2 z-[60] flex -translate-x-1/2 items-center gap-2 rounded-full bg-slate-900 px-6 py-3 text-sm font-bold text-white shadow-xl dark:bg-emerald-600 dark:text-white">
+        <svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+        </svg>
         <span x-text="toast.message"></span>
     </div>
 
@@ -308,67 +350,94 @@ Use `this.$wire` (not bare `$wire`) because we are inside an x-data method.
     - it sits outside the Farmers @if block so its state survives tab switches
     --}}
     <div x-show="modalOpen" x-cloak x-transition.opacity
-        class="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4" @click.self="closeModal()">
+        class="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm"
+        @click.self="closeModal()">
 
-        <div x-show="modalOpen" x-transition
-            class="max-h-[90vh] w-full max-w-2xl overflow-y-auto rounded-3xl bg-white p-6 shadow-xl">
-            <div class="flex items-center justify-between">
-                <div>
-                    {{-- ALPINE: x-text reads from the Alpine `form` object, so there is no "Loading..." delay --}}
-                    <h2 class="text-xl font-semibold text-slate-900"
-                        x-text="form.edit ? 'Update Collection' : 'Collect Milk'"></h2>
-                    <p class="text-sm text-slate-500" x-text="form.name"></p>
+        <div x-show="modalOpen" x-transition.scale.90
+            class="w-full max-w-lg overflow-hidden rounded-3xl bg-white shadow-2xl dark:bg-slate-800 border border-slate-200 dark:border-slate-700">
 
-                    {{-- ✅ NEW: in-modal reminder of which date is being written/edited.
-                    Admins see the chosen date; collectors see "Today". --}}
-                    <p class="mt-1 text-xs font-semibold text-emerald-600">
-                        {{ \Carbon\Carbon::parse($collectionDate)->isToday()
-                        ? 'Recording for Today'
-                        : 'Recording for ' . \Carbon\Carbon::parse($collectionDate)->format('D, M j, Y') }}
-                    </p>
+            {{-- Modal Header --}}
+            <div class="border-b border-slate-100 bg-slate-50/50 p-6 dark:border-slate-700 dark:bg-slate-800/50">
+                <div class="flex items-start justify-between">
+                    <div>
+                        {{-- ALPINE: x-text reads from the Alpine `form` object, so there is no "Loading..." delay --}}
+                        <h2 class="text-xl font-bold text-slate-900 dark:text-white"
+                            x-text="form.edit ? 'Update Collection' : 'Collect Milk'"></h2>
+                        <p class="mt-1 text-sm font-medium text-slate-500 dark:text-slate-400" x-text="form.name"></p>
+
+                        {{-- ✅ NEW: in-modal reminder of which date is being written/edited. --}}
+                        <div
+                            class="mt-2 inline-flex items-center rounded-md bg-emerald-50 px-2 py-1 text-xs font-bold text-emerald-600 dark:bg-emerald-900/30 dark:text-emerald-400">
+                            <svg class="mr-1 h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                    d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                            </svg>
+                            {{ \Carbon\Carbon::parse($collectionDate)->isToday()
+                            ? 'Recording for Today'
+                            : 'Recording for ' . \Carbon\Carbon::parse($collectionDate)->format('D, M j, Y') }}
+                        </div>
+                    </div>
+                    {{-- ALPINE: closes the modal, no server request --}}
+                    <button type="button" @click="closeModal()"
+                        class="rounded-full p-2 text-slate-400 transition hover:bg-slate-100 hover:text-slate-600 dark:hover:bg-slate-700 dark:hover:text-slate-200">
+                        <svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                d="M6 18L18 6M6 6l12 12" />
+                        </svg>
+                    </button>
                 </div>
-                {{-- ALPINE: closes the modal, no server request --}}
-                <button type="button" @click="closeModal()"
-                    class="rounded-full bg-slate-100 px-3 py-2 text-slate-700 hover:bg-slate-200">
-                    Close
-                </button>
             </div>
 
             {{-- ALPINE: @submit.prevent stops the normal page submit and runs Alpine's save() instead --}}
-            <form @submit.prevent="save()" class="mt-6 space-y-4">
+            <form @submit.prevent="save()" class="p-6 space-y-5">
                 <div>
-                    <label class="mb-2 block text-sm font-semibold text-slate-700">Quantity (Liters)</label>
+                    <label class="mb-2 block text-sm font-bold text-slate-700 dark:text-slate-300">Quantity
+                        (Liters)</label>
                     {{-- ALPINE: x-model keeps this input in sync with form.qty (two-way binding) --}}
-                    <input x-model="form.qty" type="number" step="0.01" min="0.1"
-                        class="w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-900 focus:border-slate-900 focus:outline-none" />
+                    <div class="relative">
+                        <input x-model="form.qty" type="number" step="0.01" min="0.1" placeholder="e.g. 15.5"
+                            class="w-full rounded-2xl border border-slate-300 bg-white px-4 py-3 text-lg font-bold text-slate-900 placeholder-slate-400 transition focus:border-emerald-500 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 dark:border-slate-600 dark:bg-slate-900 dark:text-white dark:focus:border-emerald-500" />
+                        <span
+                            class="pointer-events-none absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 font-bold">L</span>
+                    </div>
                     {{-- ALPINE: browser-side error, shown instantly --}}
-                    <p x-show="errors.qty" x-text="errors.qty" class="mt-2 text-sm text-rose-600"></p>
+                    <p x-show="errors.qty" x-text="errors.qty" class="mt-2 text-sm font-semibold text-rose-500"></p>
                     {{-- Server-side safety net, in case the server rejects the value --}}
-                    @error('qty')<p class="mt-2 text-sm text-rose-600">{{ $message }}</p>@enderror
+                    @error('qty')<p class="mt-2 text-sm font-semibold text-rose-500">{{ $message }}</p>@enderror
                 </div>
 
                 <div>
-                    <label class="mb-2 block text-sm font-semibold text-slate-700">Note</label>
+                    <label class="mb-2 block text-sm font-bold text-slate-700 dark:text-slate-300">Note
+                        (Optional)</label>
                     {{-- ALPINE: x-model keeps this textarea in sync with form.notes --}}
-                    <textarea x-model="form.notes" rows="3"
-                        class="w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-900 focus:border-slate-900 focus:outline-none"></textarea>
-                    <p x-show="errors.notes" x-text="errors.notes" class="mt-2 text-sm text-rose-600"></p>
-                    @error('notes')<p class="mt-2 text-sm text-rose-600">{{ $message }}</p>@enderror
+                    <textarea x-model="form.notes" rows="2" placeholder="Any corrections or comments..."
+                        class="w-full rounded-2xl border border-slate-300 bg-white px-4 py-3 text-sm text-slate-900 placeholder-slate-400 transition focus:border-emerald-500 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 dark:border-slate-600 dark:bg-slate-900 dark:text-white dark:focus:border-emerald-500"></textarea>
+                    <p x-show="errors.notes" x-text="errors.notes" class="mt-2 text-sm font-semibold text-rose-500"></p>
+                    @error('notes')<p class="mt-2 text-sm font-semibold text-rose-500">{{ $message }}</p>@enderror
                 </div>
 
                 {{-- Stacks to full-width buttons on mobile so nothing gets cut off --}}
-                <div class="flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
+                <div class="flex flex-col-reverse gap-3 pt-2 sm:flex-row sm:justify-end">
                     {{-- ALPINE: Cancel closes the modal, no server request --}}
                     <button type="button" @click="closeModal()"
-                        class="rounded-2xl border border-slate-200 px-5 py-3 text-sm font-semibold text-slate-700 hover:bg-slate-100">
+                        class="rounded-2xl border border-slate-300 bg-white px-6 py-3 text-sm font-bold text-slate-700 transition hover:bg-slate-50 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-300 dark:hover:bg-slate-700">
                         Cancel
                     </button>
                     {{-- ALPINE: :disabled and the two x-show labels follow the `saving` flag (prevents double submits)
                     --}}
                     <button type="submit" :disabled="saving"
-                        class="rounded-2xl bg-slate-900 px-5 py-3 text-sm font-semibold text-white hover:bg-slate-800 disabled:opacity-50">
-                        <span x-show="!saving">Save</span>
-                        <span x-show="saving">Saving...</span>
+                        class="rounded-2xl bg-emerald-600 px-6 py-3 text-sm font-bold text-white shadow-sm transition hover:bg-emerald-500 disabled:opacity-50 disabled:cursor-not-allowed">
+                        <span x-show="!saving">Save Record</span>
+                        <span x-show="saving" class="flex items-center gap-2">
+                            <svg class="h-4 w-4 animate-spin" viewBox="0 0 24 24" fill="none">
+                                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor"
+                                    stroke-width="4"></circle>
+                                <path class="opacity-75" fill="currentColor"
+                                    d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z">
+                                </path>
+                            </svg>
+                            Saving...
+                        </span>
                     </button>
                 </div>
             </form>

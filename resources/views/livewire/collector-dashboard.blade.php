@@ -1,37 +1,22 @@
 {{--
 ALPINE: the root element holds ALL the Alpine state for this page.
-- modalOpen : true/false, whether the collect modal is visible (no server request)
-- routeOpen : true/false, whether the route dropdown is open
-- toast : the success message popup (show flag, text, and the hide timer)
-- form : the modal's data (farmer id, name, qty, notes, edit flag), filled when you click Collect
-- errors : validation messages shown under the inputs (checked in the browser first)
-- saving : true while the save request is running (disables the Save button)
-- openModal(): fills `form` from data already on the page, then shows the modal
-- closeModal(): hides the modal, no request
-- save() : validates in the browser, then makes the ONE server request ($wire.saveCollection)
-- notify() : shows the toast and hides it after 3 seconds
-Use `this.$wire` (not bare `$wire`) because we are inside an x-data method.
 --}}
-<div class="space-y-6 {{ $darkMode ? 'dark-theme' : '' }}" x-data="{
+<div class="space-y-6" x-data="{
         modalOpen: false,
         routeOpen: false,
 
-        {{-- ALPINE: toast state. `timer` holds the pending hide so a second save restarts the 3s countdown --}}
         toast: { show: false, message: '', timer: null },
         notify(message) {
             this.toast.message = message;
             this.toast.show = true;
             clearTimeout(this.toast.timer);
-            {{-- ALPINE: auto-hide after 3000 ms (3 seconds). Change the number to adjust. --}}
             this.toast.timer = setTimeout(() => this.toast.show = false, 3000);
         },
 
-        {{-- ALPINE: modal data lives here, so opening and closing make NO server request --}}
         form: { farmerId: '', name: '', qty: '', notes: '', edit: false },
         errors: {},
         saving: false,
 
-        {{-- ALPINE: called by the Collect button with the farmer's data already on the page --}}
         openModal(farmer) {
             this.form = {
                 farmerId: farmer.id,
@@ -44,12 +29,10 @@ Use `this.$wire` (not bare `$wire`) because we are inside an x-data method.
             this.modalOpen = true;
         },
 
-        {{-- ALPINE: just hides the modal. Nothing is sent to the server. --}}
         closeModal() {
             this.modalOpen = false;
         },
 
-        {{-- ALPINE: validates in the browser first (instant), then makes ONE request on Save --}}
         async save() {
             this.errors = {};
             if (!this.form.qty || parseFloat(this.form.qty) < 0.1) {
@@ -67,11 +50,8 @@ Use `this.$wire` (not bare `$wire`) because we are inside an x-data method.
                 this.saving = false;
             }
         }
-    }" {{-- ALPINE: Livewire dispatches 'collection-saved' after a successful save; we close the modal --}}
-    @collection-saved.window="modalOpen = false" {{-- ALPINE: Livewire dispatches 'notify' with a message; we show the
-    toast --}} @notify.window="notify($event.detail.message)" {{-- ALPINE: pressing Esc closes the modal (only if it is
-    open) --}} @keydown.escape.window="modalOpen && closeModal()" {{-- ✅ NEW: when the admin changes the date, close the
-    modal so its captured payload can't go stale --}} @date-changed.window="closeModal()">
+    }" @collection-saved.window="modalOpen = false" @notify.window="notify($event.detail.message)"
+    @keydown.escape.window="modalOpen && closeModal()" @date-changed.window="closeModal()">
 
     {{-- Page header --}}
     <div class="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
@@ -82,7 +62,7 @@ Use `this.$wire` (not bare `$wire`) because we are inside an x-data method.
         </div>
         <div class="flex flex-wrap items-center gap-3">
 
-            {{-- "Back to Admin" button, only rendered for admins ($isAdmin comes from the component) --}}
+            {{-- "Back to Admin" button --}}
             @if(auth()->check() && auth()->user()->isAdmin())
             <button type="button" wire:click="backToAdmin"
                 class="rounded-full border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-700 shadow-sm transition hover:bg-slate-50 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-200 dark:hover:bg-slate-700">
@@ -90,11 +70,7 @@ Use `this.$wire` (not bare `$wire`) because we are inside an x-data method.
             </button>
             @endif
 
-            {{-- ✅ NEW: date picker, rendered ONLY for admins.
-            - wire:model.live so the component reloads farmers for the chosen date
-            - max=today stops future dates in the browser
-            - the server also enforces before_or_equal:today (see component)
-            - collectors never see this; they stay locked to today on the server --}}
+            {{-- Date picker --}}
             @if(auth()->check() && auth()->user()->isAdmin())
             <div class="flex items-center gap-2">
                 <label for="collectionDate" class="text-sm font-semibold text-slate-700 dark:text-slate-300">
@@ -104,7 +80,6 @@ Use `this.$wire` (not bare `$wire`) because we are inside an x-data method.
                     <input id="collectionDate" type="date" wire:model.live="collectionDate"
                         max="{{ now()->toDateString() }}"
                         class="cursor-pointer rounded-full border border-slate-200 bg-white px-4 py-2 pl-10 text-sm font-medium text-slate-700 shadow-sm transition hover:bg-slate-50 focus:border-emerald-500 focus:outline-none focus:ring-1 focus:ring-emerald-500 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-200 dark:hover:bg-slate-700 dark:[color-scheme:dark]" />
-                    {{-- Calendar Icon --}}
                     <svg class="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-500 dark:text-slate-400"
                         fill="none" viewBox="0 0 24 24" stroke="currentColor">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
@@ -114,17 +89,11 @@ Use `this.$wire` (not bare `$wire`) because we are inside an x-data method.
             </div>
             @endif
 
-            {{--
-            ALPINE: route dropdown.
-            - @click.outside closes it when you click anywhere else
-            - the button toggles `routeOpen`
-            - choosing an option calls the Livewire selectRoute() method, then closes the menu
-            --}}
+            {{-- Route dropdown --}}
             <div class="relative" @click.outside="routeOpen = false">
                 <button type="button" @click="routeOpen = !routeOpen"
                     class="flex items-center gap-2 rounded-full border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-700 shadow-sm transition hover:bg-slate-50 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-200 dark:hover:bg-slate-700">
                     <span>{{ $selectedRouteName }}</span>
-                    {{-- ALPINE: :class rotates the arrow when the menu is open --}}
                     <svg class="h-4 w-4 transition-transform text-slate-500 dark:text-slate-400"
                         :class="routeOpen && 'rotate-180'" viewBox="0 0 20 20" fill="currentColor">
                         <path fill-rule="evenodd"
@@ -133,7 +102,6 @@ Use `this.$wire` (not bare `$wire`) because we are inside an x-data method.
                     </svg>
                 </button>
 
-                {{-- ALPINE: x-show shows/hides the menu; x-cloak hides it before Alpine loads (no flash) --}}
                 <div x-show="routeOpen" x-cloak x-transition.origin.top.right
                     class="absolute right-0 z-40 mt-2 w-56 overflow-hidden rounded-2xl border border-slate-200 bg-white py-1 shadow-xl dark:border-slate-600 dark:bg-slate-800">
                     <button type="button" @click="$wire.selectRoute(null); routeOpen = false"
@@ -160,8 +128,7 @@ Use `this.$wire` (not bare `$wire`) because we are inside an x-data method.
         </div>
     </div>
 
-    {{-- ✅ NEW: context line so admins always know which day they're viewing/editing.
-    For collectors this shows "Today" — matches their locked behaviour. --}}
+    {{-- Context line --}}
     <p class="text-sm text-slate-500 dark:text-slate-400">
         Showing collections for
         <span class="font-bold text-emerald-600 dark:text-emerald-400">
@@ -187,7 +154,6 @@ Use `this.$wire` (not bare `$wire`) because we are inside an x-data method.
     {{-- ===================== OVERVIEW ===================== --}}
     @if($activeSection === 'overview')
     <div class="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        {{-- Card 1 --}}
         <div class="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-700 dark:bg-slate-800">
             <div class="text-sm font-medium text-slate-500 dark:text-slate-400">Selected Route</div>
             <div class="mt-2 text-2xl font-bold text-slate-900 dark:text-white truncate">{{ $selectedRouteName ?? 'All
@@ -200,8 +166,6 @@ Use `this.$wire` (not bare `$wire`) because we are inside an x-data method.
             @endif
         </div>
 
-        {{-- ✅ CHANGED: "Today's" wording only makes sense for collectors. For admins show the chosen date's label. --}}
-        {{-- Card 2 --}}
         <div class="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-700 dark:bg-slate-800">
             <div class="text-sm font-medium text-slate-500 dark:text-slate-400">
                 {{ \Carbon\Carbon::parse($collectionDate)->isToday() ? "Today's Milk" : 'Milk Collected' }}
@@ -210,7 +174,6 @@ Use `this.$wire` (not bare `$wire`) because we are inside an x-data method.
                 number_format($totalCollectedQty, 2) }} <span class="text-xl">L</span></div>
         </div>
 
-        {{-- Card 3 --}}
         <div class="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-700 dark:bg-slate-800">
             <div class="text-sm font-medium text-slate-500 dark:text-slate-400">Farmers Collected</div>
             <div class="mt-2 text-3xl font-extrabold text-blue-600 dark:text-blue-400">{{ $collectedCount }}</div>
@@ -219,7 +182,6 @@ Use `this.$wire` (not bare `$wire`) because we are inside an x-data method.
                 {{ $pendingCount }} pending</div>
         </div>
 
-        {{-- Card 4 --}}
         <div class="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-700 dark:bg-slate-800">
             <div class="text-sm font-medium text-slate-500 dark:text-slate-400">Total Route Farmers</div>
             <div class="mt-2 text-3xl font-extrabold text-slate-900 dark:text-white">{{ $totalFarmersRoute }}</div>
@@ -239,7 +201,6 @@ Use `this.$wire` (not bare `$wire`) because we are inside an x-data method.
         </div>
 
         <div class="relative">
-            {{-- Livewire v3 syntax: .live is required for typing to trigger a search request --}}
             <div class="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-4">
                 <svg class="h-5 w-5 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
@@ -250,7 +211,6 @@ Use `this.$wire` (not bare `$wire`) because we are inside an x-data method.
                 class="w-full rounded-2xl border border-slate-200 bg-slate-50 py-3 pl-11 pr-4 text-sm text-slate-900 transition focus:border-emerald-500 focus:bg-white focus:outline-none focus:ring-1 focus:ring-emerald-500 dark:border-slate-600 dark:bg-slate-900 dark:text-white dark:focus:border-emerald-500 dark:focus:bg-slate-800" />
         </div>
 
-        {{-- Farmer cards: stacks vertically on all screens, action button always visible, no horizontal scroll --}}
         <div class="mt-4 space-y-3">
             @forelse($farmers as $farmer)
             @php
@@ -259,8 +219,6 @@ Use `this.$wire` (not bare `$wire`) because we are inside an x-data method.
             $buttonLabel = $collected
             ? ($collection->collector_id === auth()->id() ? 'Update' : 'Correct')
             : 'Collect';
-            // ALPINE: everything the modal needs, built here on the server and handed to
-            // Alpine's openModal() when you click, so opening needs no server request.
             $payload = [
             'id' => $farmer->farmer_id,
             'name' => $farmer->name,
@@ -272,7 +230,6 @@ Use `this.$wire` (not bare `$wire`) because we are inside an x-data method.
             <div
                 class="flex flex-col gap-4 rounded-2xl border border-slate-200 bg-white p-4 transition-all hover:border-slate-300 hover:shadow-md dark:border-slate-700 dark:bg-slate-900/50 dark:hover:border-slate-600 sm:flex-row sm:items-center sm:justify-between">
 
-                {{-- Farmer identity --}}
                 <div class="min-w-0">
                     <div class="truncate text-base font-bold text-slate-900 dark:text-white">{{ $farmer->name }}</div>
                     <div class="mt-1 flex items-center gap-2 text-xs font-medium text-slate-500 dark:text-slate-400">
@@ -282,7 +239,6 @@ Use `this.$wire` (not bare `$wire`) because we are inside an x-data method.
                     </div>
                 </div>
 
-                {{-- Status + action: same row on mobile so button is always visible without scrolling --}}
                 <div class="flex items-center justify-between gap-3 sm:justify-end sm:shrink-0">
                     @if($collected)
                     <span
@@ -301,10 +257,6 @@ Use `this.$wire` (not bare `$wire`) because we are inside an x-data method.
                     </span>
                     @endif
 
-                    {{--
-                    ALPINE: opens the modal instantly with this farmer's data. No server request.
-                    @js() safely converts the PHP array into a JavaScript object.
-                    --}}
                     <button type="button" @click="openModal(@js($payload))"
                         class="shrink-0 rounded-full bg-emerald-600 px-5 py-2 text-sm font-bold text-white shadow-sm transition hover:bg-emerald-500 hover:shadow focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:ring-offset-2 dark:focus:ring-offset-slate-900">
                         {{ $buttonLabel }}
@@ -330,10 +282,7 @@ Use `this.$wire` (not bare `$wire`) because we are inside an x-data method.
     </div>
     @endif
 
-    {{--
-    ALPINE: success toast. x-show="toast.show" displays it when notify() runs; notify() hides it
-    again after 3 seconds. x-text fills in the message. z-[60] keeps it above the modal (z-50).
-    --}}
+    {{-- Toast --}}
     <div x-show="toast.show" x-cloak x-transition
         class="fixed bottom-6 left-1/2 z-[60] flex -translate-x-1/2 items-center gap-2 rounded-full bg-slate-900 px-6 py-3 text-sm font-bold text-white shadow-xl dark:bg-emerald-600 dark:text-white">
         <svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -343,12 +292,7 @@ Use `this.$wire` (not bare `$wire`) because we are inside an x-data method.
         <span x-text="toast.message"></span>
     </div>
 
-    {{--
-    ALPINE: the modal.
-    - x-show="modalOpen" shows/hides it (x-cloak prevents a flash on page load)
-    - @click.self closes it when you click the dark backdrop (but not the white box)
-    - it sits outside the Farmers @if block so its state survives tab switches
-    --}}
+    {{-- Modal --}}
     <div x-show="modalOpen" x-cloak x-transition.opacity
         class="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm"
         @click.self="closeModal()">
@@ -356,16 +300,13 @@ Use `this.$wire` (not bare `$wire`) because we are inside an x-data method.
         <div x-show="modalOpen" x-transition.scale.90
             class="w-full max-w-lg overflow-hidden rounded-3xl bg-white shadow-2xl dark:bg-slate-800 border border-slate-200 dark:border-slate-700">
 
-            {{-- Modal Header --}}
             <div class="border-b border-slate-100 bg-slate-50/50 p-6 dark:border-slate-700 dark:bg-slate-800/50">
                 <div class="flex items-start justify-between">
                     <div>
-                        {{-- ALPINE: x-text reads from the Alpine `form` object, so there is no "Loading..." delay --}}
                         <h2 class="text-xl font-bold text-slate-900 dark:text-white"
                             x-text="form.edit ? 'Update Collection' : 'Collect Milk'"></h2>
                         <p class="mt-1 text-sm font-medium text-slate-500 dark:text-slate-400" x-text="form.name"></p>
 
-                        {{-- ✅ NEW: in-modal reminder of which date is being written/edited. --}}
                         <div
                             class="mt-2 inline-flex items-center rounded-md bg-emerald-50 px-2 py-1 text-xs font-bold text-emerald-600 dark:bg-emerald-900/30 dark:text-emerald-400">
                             <svg class="mr-1 h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -377,7 +318,6 @@ Use `this.$wire` (not bare `$wire`) because we are inside an x-data method.
                             : 'Recording for ' . \Carbon\Carbon::parse($collectionDate)->format('D, M j, Y') }}
                         </div>
                     </div>
-                    {{-- ALPINE: closes the modal, no server request --}}
                     <button type="button" @click="closeModal()"
                         class="rounded-full p-2 text-slate-400 transition hover:bg-slate-100 hover:text-slate-600 dark:hover:bg-slate-700 dark:hover:text-slate-200">
                         <svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -388,43 +328,34 @@ Use `this.$wire` (not bare `$wire`) because we are inside an x-data method.
                 </div>
             </div>
 
-            {{-- ALPINE: @submit.prevent stops the normal page submit and runs Alpine's save() instead --}}
             <form @submit.prevent="save()" class="p-6 space-y-5">
                 <div>
                     <label class="mb-2 block text-sm font-bold text-slate-700 dark:text-slate-300">Quantity
                         (Liters)</label>
-                    {{-- ALPINE: x-model keeps this input in sync with form.qty (two-way binding) --}}
                     <div class="relative">
                         <input x-model="form.qty" type="number" step="0.01" min="0.1" placeholder="e.g. 15.5"
                             class="w-full rounded-2xl border border-slate-300 bg-white px-4 py-3 text-lg font-bold text-slate-900 placeholder-slate-400 transition focus:border-emerald-500 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 dark:border-slate-600 dark:bg-slate-900 dark:text-white dark:focus:border-emerald-500" />
                         <span
                             class="pointer-events-none absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 font-bold">L</span>
                     </div>
-                    {{-- ALPINE: browser-side error, shown instantly --}}
                     <p x-show="errors.qty" x-text="errors.qty" class="mt-2 text-sm font-semibold text-rose-500"></p>
-                    {{-- Server-side safety net, in case the server rejects the value --}}
                     @error('qty')<p class="mt-2 text-sm font-semibold text-rose-500">{{ $message }}</p>@enderror
                 </div>
 
                 <div>
                     <label class="mb-2 block text-sm font-bold text-slate-700 dark:text-slate-300">Note
                         (Optional)</label>
-                    {{-- ALPINE: x-model keeps this textarea in sync with form.notes --}}
                     <textarea x-model="form.notes" rows="2" placeholder="Any corrections or comments..."
                         class="w-full rounded-2xl border border-slate-300 bg-white px-4 py-3 text-sm text-slate-900 placeholder-slate-400 transition focus:border-emerald-500 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 dark:border-slate-600 dark:bg-slate-900 dark:text-white dark:focus:border-emerald-500"></textarea>
                     <p x-show="errors.notes" x-text="errors.notes" class="mt-2 text-sm font-semibold text-rose-500"></p>
                     @error('notes')<p class="mt-2 text-sm font-semibold text-rose-500">{{ $message }}</p>@enderror
                 </div>
 
-                {{-- Stacks to full-width buttons on mobile so nothing gets cut off --}}
                 <div class="flex flex-col-reverse gap-3 pt-2 sm:flex-row sm:justify-end">
-                    {{-- ALPINE: Cancel closes the modal, no server request --}}
                     <button type="button" @click="closeModal()"
                         class="rounded-2xl border border-slate-300 bg-white px-6 py-3 text-sm font-bold text-slate-700 transition hover:bg-slate-50 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-300 dark:hover:bg-slate-700">
                         Cancel
                     </button>
-                    {{-- ALPINE: :disabled and the two x-show labels follow the `saving` flag (prevents double submits)
-                    --}}
                     <button type="submit" :disabled="saving"
                         class="rounded-2xl bg-emerald-600 px-6 py-3 text-sm font-bold text-white shadow-sm transition hover:bg-emerald-500 disabled:opacity-50 disabled:cursor-not-allowed">
                         <span x-show="!saving">Save Record</span>

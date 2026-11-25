@@ -37,19 +37,28 @@ class SendCollectionSms implements ShouldQueue
         $earnedToday = $farmer->earningsBetween($date->copy(), $date->copy());
         $earnedMonth = $farmer->earningsBetween($date->copy()->startOfMonth(), $date->copy());
 
+        // $message = sprintf(
+        //     "Dear %s, we received %s L (%s). Route: %s @ KES %s/L. " .
+        //     "Today: %s L = KES %s. Month so far: KES %s. Collector: %s.",
+        //     $farmer->name,
+        //     number_format((float) $collection->qty, 2),
+        //     $date->format('d/m/Y'),
+        //     $collection->route?->name ?? '-',
+        //     number_format($rate, 2),
+        //     number_format($litersToday, 2),
+        //     number_format($earnedToday, 2),
+        //     number_format($earnedMonth, 2),
+        //     $collection->collector?->name ?? '-'
+        // );
         $message = sprintf(
-            "Dear %s, we received %s L (%s). Route: %s @ KES %s/L. " .
-            "Today: %s L = KES %s. Month so far: KES %s. Collector: %s.",
-            $farmer->name,
-            number_format((float) $collection->qty, 2),
-            $date->format('d/m/Y'),
-            $collection->route?->name ?? '-',
-            number_format($rate, 2),
-            number_format($litersToday, 2),
-            number_format($earnedToday, 2),
-            number_format($earnedMonth, 2),
-            $collection->collector?->name ?? '-'
-        );
+    "Dear %s, received %s L on %s @ KES %s/L. Today: KES %s. Month: KES %s.",
+    $farmer->name,
+    number_format((float) $collection->qty, 2),
+    $date->format('d/m'),
+    number_format($rate, 2),
+    number_format($earnedToday, 2),
+    number_format($earnedMonth, 2)
+);
 
         // Throwing an exception makes Laravel retry (up to $tries, waiting $backoff).
         if (! $sms->send($farmer->phone, $message)) {

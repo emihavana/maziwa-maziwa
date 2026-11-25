@@ -13,14 +13,7 @@ class AppServiceProvider extends ServiceProvider
      */
     public function register(): void
     {
-       $this->app->bind(LoginResponseContract::class, CustomLoginResponse::class);
-       $this->app->bind(\App\Services\HostPinnacleSms::class, fn () => new class extends \App\Services\HostPinnacleSms {
-    public function send(string $phone, string $message): bool
-    {
-        \Log::info("FAKE SMS to {$phone}: {$message}");
-        return true;
-    }
-});
+        $this->app->bind(LoginResponseContract::class, CustomLoginResponse::class);
     }
 
     /**

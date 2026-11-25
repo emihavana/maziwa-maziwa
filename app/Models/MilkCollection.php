@@ -48,4 +48,13 @@ public function route(): BelongsTo
 {
     return $this->belongsTo(Route::class);
 }
+protected static function booted(): void
+{
+    static::creating(function ($collection) {
+        if (empty($collection->route_id)) {
+            $collection->route_id = Farmer::where('farmer_id', $collection->farmer_id)
+                ->value('route_id');
+        }
+    });
+}
 }

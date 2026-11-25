@@ -14,7 +14,7 @@ class MilkCollectionObserver implements ShouldHandleEventsAfterCommit
     public function created(MilkCollection $collection): void
     {
         // Optional: skip corrections so farmers aren't texted twice.
-        // if ($collection->is_correction) return;
+        if ($collection->is_correction) return;
 
         // Only queue the work (fast). The slow SMS call happens in the
         // background, so the collector's screen never waits on it.
